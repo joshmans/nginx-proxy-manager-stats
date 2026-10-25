@@ -90,6 +90,16 @@ const labelOf = (type, id) => {
 	return Array.isArray(row?.domain_names) && row.domain_names.length ? row.domain_names.join(", ") : "";
 };
 
+const sumCounts = (rows) => {
+	const totals = { requests: 0, s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0, bytes: 0 };
+	for (const row of rows) {
+		for (const k of Object.keys(totals)) {
+			totals[k] += row[k];
+		}
+	}
+	return totals;
+};
+
 const internalTrafficStats = {
 	SETTING_ID,
 	normalizeMeta,
@@ -194,6 +204,25 @@ const internalTrafficStats = {
 			throw new errs.ValidationError(`Could not read traffic stats: ${err.message}`);
 		}
 
+		// The same span just before this one, for the "vs previous period" changes
+		let previous = null;
+		try {
+			const before = await activeStore.query({ from: from - (to - from), to: from, step: to - from, hosts });
+			previous = {
+				totals: sumCounts(before.hosts),
+				hosts: before.hosts.map(({ host_type, host_id, requests, bytes, s4xx, s5xx }) => ({
+					host_type,
+					host_id,
+					requests,
+					bytes,
+					s4xx,
+					s5xx,
+				})),
+			};
+		} catch (err) {
+			logger.warn(`Traffic stats: previous period query failed: ${err.message}`);
+		}
+
 		const totals = { requests: 0, s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0, bytes: 0 };
 		for (const row of result.hosts) {
 			for (const k of Object.keys(totals)) {
@@ -210,6 +239,7 @@ const internalTrafficStats = {
 			geoip: !!geoip?.reader,
 			range: { from, to, step, hours },
 			totals,
+			previous,
 			series: result.series,
 			hosts: result.hosts,
 			top: result.top,

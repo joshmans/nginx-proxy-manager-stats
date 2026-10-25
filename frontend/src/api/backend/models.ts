@@ -245,6 +245,10 @@ export interface TrafficReport {
 	error?: string | null;
 	range?: { from: number; to: number; step: number; hours: number };
 	totals?: TrafficCounts;
+	previous?: {
+		totals: TrafficCounts;
+		hosts: Array<Partial<TrafficCounts> & { host_type: string; host_id: number }>;
+	} | null;
 	series?: Array<TrafficCounts & { ts: number }>;
 	hosts?: Array<TrafficCounts & { host_type: string; host_id: number; label: string }>;
 	top?: {

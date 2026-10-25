@@ -821,20 +821,35 @@
 	"test": {
 		"defaultMessage": "Testi"
 	},
-	"traffic.active-hosts": {
-		"defaultMessage": "Aktiivsed hostid"
-	},
 	"traffic.bandwidth": {
 		"defaultMessage": "Ribalaius"
+	},
+	"traffic.class-over-time": {
+		"defaultMessage": "Klasside kaupa ajas"
+	},
+	"traffic.class.2xx": {
+		"defaultMessage": "Õnnestunud"
+	},
+	"traffic.class.3xx": {
+		"defaultMessage": "Suunatud"
+	},
+	"traffic.class.4xx": {
+		"defaultMessage": "Kliendi viga"
+	},
+	"traffic.class.5xx": {
+		"defaultMessage": "Serveri viga"
+	},
+	"traffic.client-errors": {
+		"defaultMessage": "Kliendi vead (4xx)"
 	},
 	"traffic.disabled": {
 		"defaultMessage": "Liikluse statistika on välja lülitatud. Administraator saab selle seadetes sisse lülitada."
 	},
-	"traffic.error-rate": {
-		"defaultMessage": "Veamäär"
+	"traffic.host": {
+		"defaultMessage": "Hosti nimi"
 	},
-	"traffic.errors-by-host": {
-		"defaultMessage": "Vead hostide kaupa"
+	"traffic.hosts": {
+		"defaultMessage": "Hostid"
 	},
 	"traffic.no-data": {
 		"defaultMessage": "Andmeid pole"
@@ -842,20 +857,35 @@
 	"traffic.requests": {
 		"defaultMessage": "Päringud"
 	},
+	"traffic.requests-per": {
+		"defaultMessage": "Päringuid {step} kohta"
+	},
+	"traffic.server-errors": {
+		"defaultMessage": "Serveri vead (5xx)"
+	},
+	"traffic.status-codes": {
+		"defaultMessage": "Olekukoodid"
+	},
+	"traffic.status-codes.hint": {
+		"defaultMessage": "Kuidas vastused jagunevad ja kuidas iga klass ajas muutub."
+	},
+	"traffic.subtitle": {
+		"defaultMessage": "Päringud, olekukoodid ja ribalaius hostide juurdepääsulogidest."
+	},
 	"traffic.title": {
 		"defaultMessage": "Liiklus"
 	},
 	"traffic.top-countries": {
 		"defaultMessage": "Populaarseimad riigid"
 	},
-	"traffic.top-hosts": {
-		"defaultMessage": "Hõivatuimad hostid"
-	},
 	"traffic.top-ips": {
 		"defaultMessage": "Populaarseimad kliendi IP-d"
 	},
 	"traffic.top-paths": {
 		"defaultMessage": "Populaarseimad teed"
+	},
+	"traffic.vs-previous": {
+		"defaultMessage": "võrreldes eelmise perioodiga"
 	},
 	"update-available": {
 		"defaultMessage": "Uuendus saadaval: {latestVersion}"

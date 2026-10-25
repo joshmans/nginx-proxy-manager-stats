@@ -821,20 +821,35 @@
 	"test": {
 		"defaultMessage": "Test"
 	},
-	"traffic.active-hosts": {
-		"defaultMessage": "Active hosts"
-	},
 	"traffic.bandwidth": {
 		"defaultMessage": "Bandwidth"
+	},
+	"traffic.class-over-time": {
+		"defaultMessage": "By class over time"
+	},
+	"traffic.class.2xx": {
+		"defaultMessage": "Success"
+	},
+	"traffic.class.3xx": {
+		"defaultMessage": "Redirected"
+	},
+	"traffic.class.4xx": {
+		"defaultMessage": "Client error"
+	},
+	"traffic.class.5xx": {
+		"defaultMessage": "Server error"
+	},
+	"traffic.client-errors": {
+		"defaultMessage": "Client errors (4xx)"
 	},
 	"traffic.disabled": {
 		"defaultMessage": "Traffic statistics are switched off. An administrator can enable them in Settings."
 	},
-	"traffic.error-rate": {
-		"defaultMessage": "Error rate"
+	"traffic.host": {
+		"defaultMessage": "Host"
 	},
-	"traffic.errors-by-host": {
-		"defaultMessage": "Errors by host"
+	"traffic.hosts": {
+		"defaultMessage": "Hosts"
 	},
 	"traffic.no-data": {
 		"defaultMessage": "No data"
@@ -842,20 +857,35 @@
 	"traffic.requests": {
 		"defaultMessage": "Requests"
 	},
+	"traffic.requests-per": {
+		"defaultMessage": "Requests per {step}"
+	},
+	"traffic.server-errors": {
+		"defaultMessage": "Server errors (5xx)"
+	},
+	"traffic.status-codes": {
+		"defaultMessage": "Status codes"
+	},
+	"traffic.status-codes.hint": {
+		"defaultMessage": "How the responses split up, and how each class trends over time."
+	},
+	"traffic.subtitle": {
+		"defaultMessage": "Requests, status codes and bandwidth from the host access logs."
+	},
 	"traffic.title": {
 		"defaultMessage": "Traffic"
 	},
 	"traffic.top-countries": {
 		"defaultMessage": "Top countries"
 	},
-	"traffic.top-hosts": {
-		"defaultMessage": "Busiest hosts"
-	},
 	"traffic.top-ips": {
 		"defaultMessage": "Top client IPs"
 	},
 	"traffic.top-paths": {
 		"defaultMessage": "Top paths"
+	},
+	"traffic.vs-previous": {
+		"defaultMessage": "vs previous period"
 	},
 	"update-available": {
 		"defaultMessage": "Update Available: {latestVersion}"
