@@ -1,6 +1,9 @@
+import { IconHome, IconQuestionMark } from "@tabler/icons-react";
+import { hasFlag } from "country-flag-icons";
 import type { ReactNode } from "react";
 import type { TrafficCounts, TrafficReport } from "src/api/backend";
-import { T } from "src/locale";
+import { Flag } from "src/components/Flag";
+import { intl, T } from "src/locale";
 
 export const RANGES = [
 	{ hours: 1, label: "1h" },
@@ -44,14 +47,31 @@ const stepLabel = (step: number) => {
 };
 
 const countryName = (code: string) => {
+	if (code === "LOCAL") {
+		return intl.formatMessage({ id: "traffic.local" });
+	}
 	if (code === "??") {
-		return "Unknown";
+		return intl.formatMessage({ id: "traffic.unknown" });
 	}
 	try {
 		return new Intl.DisplayNames([navigator.language], { type: "region" }).of(code) || code;
 	} catch {
 		return code;
 	}
+};
+
+// Flag for a country code, a house for the local network, a question mark when unknown
+const CountryMark = ({ code }: { code?: string | null }) => {
+	if (!code) {
+		return null;
+	}
+	if (code === "LOCAL") {
+		return <IconHome size={16} className="text-secondary" />;
+	}
+	if (hasFlag(code)) {
+		return <Flag countryCode={code} className="rounded-1" />;
+	}
+	return <IconQuestionMark size={16} className="text-secondary" />;
 };
 
 const pct = (part: number, whole: number) => (whole ? (part / whole) * 100 : 0);
@@ -192,23 +212,30 @@ const Tile = ({
 	</div>
 );
 
-const ListCard = ({ title, rows }: { title: ReactNode; rows: Array<{ label: string; value: number }> }) => {
+interface ListRow {
+	label: string;
+	value: number;
+	icon?: ReactNode;
+}
+
+const ListCard = ({ title, rows, empty }: { title: ReactNode; rows: ListRow[]; empty?: ReactNode }) => {
 	const max = Math.max(1, ...rows.map((r) => r.value));
 	return (
 		<div className="col-md-6 col-xl-4">
 			<div className="card h-100">
 				<div className="card-body">
 					<h4 className="card-title mb-3">{title}</h4>
-					{rows.length === 0 && (
-						<div className="text-secondary">
-							<T id="traffic.no-data" />
-						</div>
-					)}
+					{rows.length === 0 && <div className="text-secondary">{empty ?? <T id="traffic.no-data" />}</div>}
 					{rows.map((r) => (
 						<div key={r.label} className="mb-2">
 							<div className="d-flex justify-content-between small">
-								<span className="text-truncate me-2" title={r.label}>
-									{r.label}
+								<span className="text-truncate me-2 d-flex align-items-center gap-2" title={r.label}>
+									{r.icon && (
+										<span className="d-inline-flex" style={{ width: 20, flex: "none" }}>
+											{r.icon}
+										</span>
+									)}
+									<span className="text-truncate">{r.label}</span>
 								</span>
 								<span className="text-secondary">{r.value.toLocaleString()}</span>
 							</div>
@@ -431,14 +458,21 @@ const TrafficPanel = ({ data, single }: PanelProps) => {
 				/>
 				<ListCard
 					title={<T id="traffic.top-ips" />}
-					rows={(data.top?.ip ?? []).map((r) => ({ label: r.item, value: r.hits }))}
+					rows={(data.top?.ip ?? []).map((r) => ({
+						label: r.item,
+						value: r.hits,
+						icon: <CountryMark code={r.country} />,
+					}))}
 				/>
-				{data.geoip && (
-					<ListCard
-						title={<T id="traffic.top-countries" />}
-						rows={(data.top?.country ?? []).map((r) => ({ label: countryName(r.item), value: r.hits }))}
-					/>
-				)}
+				<ListCard
+					title={<T id="traffic.top-countries" />}
+					empty={data.geoip ? undefined : <T id="traffic.geoip-off" />}
+					rows={(data.top?.country ?? []).map((r) => ({
+						label: countryName(r.item),
+						value: r.hits,
+						icon: <CountryMark code={r.item} />,
+					}))}
+				/>
 			</div>
 			{data.geoip && (
 				<div className="text-secondary small mt-3">

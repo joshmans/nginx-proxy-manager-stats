@@ -5,6 +5,7 @@ import zlib from "node:zlib";
 import db from "../../db.js";
 import { global as logger } from "../../logger.js";
 import Aggregator from "./aggregator.js";
+import { isLocalIp } from "./ip.js";
 import { parseFileName, parseLine } from "./parser.js";
 
 const LOG_DIR = process.env.NPM_TRAFFIC_LOG_DIR || "/data/logs";
@@ -97,7 +98,7 @@ class Ingest {
 	#parse(line, host) {
 		const rec = parseLine(line, host.host_type);
 		if (rec && this.geoip?.reader) {
-			rec.country = this.geoip.country(rec.ip) || "??";
+			rec.country = isLocalIp(rec.ip) ? "LOCAL" : this.geoip.country(rec.ip) || "??";
 		}
 		return rec;
 	}

@@ -845,11 +845,17 @@
 	"traffic.disabled": {
 		"defaultMessage": "Liikluse statistika on välja lülitatud. Administraator saab selle seadetes sisse lülitada."
 	},
+	"traffic.geoip-off": {
+		"defaultMessage": "Klientide riike ei salvestata. Administraator saab selle sisse lülitada jaotises Seaded > Liikluse statistika."
+	},
 	"traffic.host": {
 		"defaultMessage": "Hosti nimi"
 	},
 	"traffic.hosts": {
 		"defaultMessage": "Hostid"
+	},
+	"traffic.local": {
+		"defaultMessage": "Kohalik võrk"
 	},
 	"traffic.no-data": {
 		"defaultMessage": "Andmeid pole"
@@ -883,6 +889,9 @@
 	},
 	"traffic.top-paths": {
 		"defaultMessage": "Populaarseimad teed"
+	},
+	"traffic.unknown": {
+		"defaultMessage": "Teadmata"
 	},
 	"traffic.vs-previous": {
 		"defaultMessage": "võrreldes eelmise perioodiga"

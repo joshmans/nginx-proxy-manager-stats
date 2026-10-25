@@ -252,7 +252,7 @@ export interface TrafficReport {
 	series?: Array<TrafficCounts & { ts: number }>;
 	hosts?: Array<TrafficCounts & { host_type: string; host_id: number; label: string }>;
 	top?: {
-		ip: Array<{ item: string; hits: number }>;
+		ip: Array<{ item: string; hits: number; country?: string | null }>;
 		path: Array<{ item: string; hits: number }>;
 		country: Array<{ item: string; hits: number }>;
 	};

@@ -251,6 +251,13 @@
 												},
 												"hits": {
 													"type": "integer"
+												},
+												"country": {
+													"type": [
+														"string",
+														"null"
+													],
+													"description": "ISO country code, LOCAL for private addresses, ?? if unknown, null when countries are not being recorded"
 												}
 											}
 										}

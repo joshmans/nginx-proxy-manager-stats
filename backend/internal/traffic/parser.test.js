@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import Aggregator from "./aggregator.js";
+import { isLocalIp } from "./ip.js";
 import { parseFileName, parseLine, parseTime } from "./parser.js";
 
 const proxyLine =
@@ -76,4 +77,23 @@ test("records countries and skips empty paths", () => {
 	const { tops } = agg.drain();
 	assert.ok(tops.some((t) => t.kind === "country" && t.item === "US"));
 	assert.ok(!tops.some((t) => t.kind === "path"));
+});
+
+test("recognises local addresses", () => {
+	for (const ip of [
+		"192.168.1.1",
+		"10.1.2.3",
+		"172.18.0.1",
+		"127.0.0.1",
+		"100.64.0.9",
+		"fd12::1",
+		"fe80::1",
+		"::1",
+		"::ffff:192.168.1.5",
+	]) {
+		assert.equal(isLocalIp(ip), true, ip);
+	}
+	for (const ip of ["8.8.8.8", "172.32.0.1", "2001:db8::1", "not an ip"]) {
+		assert.equal(isLocalIp(ip), false, ip);
+	}
 });

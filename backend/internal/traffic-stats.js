@@ -8,6 +8,7 @@ import settingModel from "../models/setting.js";
 import db from "../db.js";
 import { BUCKET_SECONDS } from "./traffic/aggregator.js";
 import GeoIp from "./traffic/geoip.js";
+import { isLocalIp } from "./traffic/ip.js";
 import Ingest from "./traffic/ingest.js";
 import influxStore from "./traffic/store/influx.js";
 import localStore from "./traffic/store/local.js";
@@ -231,6 +232,12 @@ const internalTrafficStats = {
 			row.label = labelOf(row.host_type, row.host_id) || `Deleted host #${row.host_id}`;
 		}
 		result.hosts.sort((a, b) => b.requests - a.requests);
+
+		// Tag the top client IPs with a country for the flags: local addresses never need the database
+		result.top.ip = result.top.ip.map((row) => ({
+			...row,
+			country: isLocalIp(row.item) ? "LOCAL" : geoip?.reader ? geoip.country(row.item) || "??" : null,
+		}));
 
 		return {
 			enabled: true,
