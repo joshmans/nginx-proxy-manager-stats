@@ -95,7 +95,12 @@ const setupDefaultSettings = async () => {
 			name: "Traffic Statistics",
 			description: "Collect request statistics from the host access logs and show them on the dashboard",
 			value: "disabled",
-			meta: { retention_days: 30, range_hours: 24, influx: { url: "", org: "", bucket: "", token: "" } },
+			meta: {
+				retention_days: 30,
+				range_hours: 24,
+				geoip: false,
+				influx: { url: "", org: "", bucket: "", token: "" },
+			},
 		});
 		logger.info("Traffic statistics setting added");
 	}

@@ -140,6 +140,9 @@
 	"action.renew": {
 		"defaultMessage": "Renew"
 	},
+	"action.stats": {
+		"defaultMessage": "Statistics"
+	},
 	"action.view-details": {
 		"defaultMessage": "View Details"
 	},
@@ -755,6 +758,12 @@
 	"settings.traffic-stats.enable.hint": {
 		"defaultMessage": "Reads the host access logs and shows request statistics on the dashboard. Existing logs are imported when this is switched on."
 	},
+	"settings.traffic-stats.geoip": {
+		"defaultMessage": "Record client countries"
+	},
+	"settings.traffic-stats.geoip.hint": {
+		"defaultMessage": "Uses a local IP-to-country database. If you put your own .mmdb file in /data/geoip it is used, otherwise the free DB-IP Lite database is downloaded and refreshed monthly. Only applies to traffic read from now on."
+	},
 	"settings.traffic-stats.influx": {
 		"defaultMessage": "InfluxDB (optional)"
 	},
@@ -818,6 +827,9 @@
 	"traffic.bandwidth": {
 		"defaultMessage": "Bandwidth"
 	},
+	"traffic.disabled": {
+		"defaultMessage": "Traffic statistics are switched off. An administrator can enable them in Settings."
+	},
 	"traffic.error-rate": {
 		"defaultMessage": "Error rate"
 	},
@@ -832,6 +844,9 @@
 	},
 	"traffic.title": {
 		"defaultMessage": "Traffic"
+	},
+	"traffic.top-countries": {
+		"defaultMessage": "Top countries"
 	},
 	"traffic.top-hosts": {
 		"defaultMessage": "Busiest hosts"

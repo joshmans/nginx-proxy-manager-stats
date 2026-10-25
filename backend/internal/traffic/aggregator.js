@@ -47,7 +47,12 @@ class Aggregator {
 
 		const topBucket = rec.ts - (rec.ts % TOP_BUCKET_SECONDS);
 		this.#top(topBucket, host, "ip", rec.ip);
-		this.#top(topBucket, host, "path", rec.path);
+		if (rec.path) {
+			this.#top(topBucket, host, "path", rec.path);
+		}
+		if (rec.country) {
+			this.#top(topBucket, host, "country", rec.country);
+		}
 	}
 
 	#top(bucket, host, kind, item) {

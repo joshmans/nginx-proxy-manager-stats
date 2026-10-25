@@ -241,12 +241,17 @@ export interface TrafficCounts {
 export interface TrafficReport {
 	enabled: boolean;
 	storage?: "local" | "influxdb";
+	geoip?: boolean;
 	error?: string | null;
 	range?: { from: number; to: number; step: number; hours: number };
 	totals?: TrafficCounts;
 	series?: Array<TrafficCounts & { ts: number }>;
 	hosts?: Array<TrafficCounts & { host_type: string; host_id: number; label: string }>;
-	top?: { ip: Array<{ item: string; hits: number }>; path: Array<{ item: string; hits: number }> };
+	top?: {
+		ip: Array<{ item: string; hits: number }>;
+		path: Array<{ item: string; hits: number }>;
+		country: Array<{ item: string; hits: number }>;
+	};
 }
 
 export interface DNSProvider {

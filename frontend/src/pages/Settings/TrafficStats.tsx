@@ -23,6 +23,7 @@ export default function TrafficStats() {
 			id: "traffic-stats",
 			value: values.enabled ? "enabled" : "disabled",
 			meta: {
+				geoip: !!values.geoip,
 				retention_days: Number(values.retention_days),
 				range_hours: Number(values.range_hours),
 				influx: {
@@ -77,6 +78,7 @@ export default function TrafficStats() {
 			initialValues={
 				{
 					enabled: data?.value === "enabled",
+					geoip: meta.geoip === true,
 					retention_days: meta.retention_days ?? 30,
 					range_hours: meta.range_hours ?? 24,
 					influx_url: influx.url || "",
@@ -150,6 +152,27 @@ export default function TrafficStats() {
 											/>
 										</div>
 									</div>
+									<Field name="geoip">
+										{({ field }: any) => (
+											<div className="mb-3">
+												<label className="form-check form-switch">
+													<input
+														id="traffic-geoip"
+														className="form-check-input"
+														type="checkbox"
+														{...field}
+														checked={!!field.value}
+													/>
+													<span className="form-check-label">
+														<T id="settings.traffic-stats.geoip" />
+													</span>
+												</label>
+												<div className="form-hint">
+													<T id="settings.traffic-stats.geoip.hint" />
+												</div>
+											</div>
+										)}
+									</Field>
 									<h4 className="mt-4">
 										<T id="settings.traffic-stats.influx" />
 									</h4>

@@ -23,10 +23,13 @@ class Ingest {
 	 * @param {Object}   opts
 	 * @param {Object}   opts.store          one of the traffic stores
 	 * @param {Number}   opts.retentionDays  lines older than this are skipped
+	 * @param {Object}   [opts.geoip]        a GeoIp instance, to add countries
 	 */
-	constructor({ store, retentionDays }) {
+	constructor({ store, retentionDays, geoip = null }) {
 		this.store = store;
 		this.retentionDays = retentionDays;
+		this.geoip = geoip;
+		this.lastGeoip = 0;
 		this.timer = null;
 		this.busy = false;
 		this.lastPrune = 0;
@@ -60,6 +63,10 @@ class Ingest {
 		}
 		this.busy = true;
 		try {
+			if (this.geoip && Date.now() - this.lastGeoip > 3600 * 1000) {
+				this.lastGeoip = Date.now();
+				await this.geoip.ensure();
+			}
 			const files = (await fs.promises.readdir(LOG_DIR)).filter((f) => parseFileName(f));
 			const cursors = new Map((await db()("traffic_stat_cursor").select()).map((c) => [c.file, c]));
 
@@ -85,6 +92,14 @@ class Ingest {
 			this.lastRun = Date.now();
 			this.busy = false;
 		}
+	}
+
+	#parse(line, host) {
+		const rec = parseLine(line, host.host_type);
+		if (rec && this.geoip?.reader) {
+			rec.country = this.geoip.country(rec.ip) || "??";
+		}
+		return rec;
 	}
 
 	async #saveCursor(file, inode, position) {
@@ -154,7 +169,7 @@ class Ingest {
 			}
 			const cutoff = this.#cutoff;
 			for (const line of buf.toString("utf8", 0, lastNewline).split("\n")) {
-				const rec = parseLine(line);
+				const rec = this.#parse(line, host);
 				if (rec && rec.ts >= cutoff) {
 					agg.add(host, rec);
 				}
@@ -208,7 +223,7 @@ class Ingest {
 		const agg = new Aggregator();
 		const cutoff = this.#cutoff;
 		const onLine = (line) => {
-			const rec = parseLine(line);
+			const rec = this.#parse(line, host);
 			if (rec && rec.ts >= cutoff) {
 				agg.add(host, rec);
 			}

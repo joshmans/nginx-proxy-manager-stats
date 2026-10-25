@@ -91,6 +91,10 @@
 											"type": "string"
 										}
 									}
+								},
+								"geoip": {
+									"type": "boolean",
+									"description": "Traffic stats: record the country of each client, using a local GeoIP database (DB-IP Lite is downloaded if none is supplied)"
 								}
 							},
 							"example": {

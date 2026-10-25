@@ -3,9 +3,11 @@ import { global as logger } from "../logger.js";
 import deadHostModel from "../models/dead_host.js";
 import proxyHostModel from "../models/proxy_host.js";
 import redirectionHostModel from "../models/redirection_host.js";
+import streamModel from "../models/stream.js";
 import settingModel from "../models/setting.js";
 import db from "../db.js";
 import { BUCKET_SECONDS } from "./traffic/aggregator.js";
+import GeoIp from "./traffic/geoip.js";
 import Ingest from "./traffic/ingest.js";
 import influxStore from "./traffic/store/influx.js";
 import localStore from "./traffic/store/local.js";
@@ -13,11 +15,22 @@ import localStore from "./traffic/store/local.js";
 const SETTING_ID = "traffic-stats";
 const MASK = "********";
 const MAX_POINTS = 300;
-const HOST_MODELS = { proxy: proxyHostModel, redirection: redirectionHostModel, dead: deadHostModel };
+const HOST_MODELS = {
+	proxy: proxyHostModel,
+	redirection: redirectionHostModel,
+	dead: deadHostModel,
+	stream: streamModel,
+};
 
-export const DEFAULTS = { retention_days: 30, range_hours: 24, influx: { url: "", org: "", bucket: "", token: "" } };
+export const DEFAULTS = {
+	retention_days: 30,
+	range_hours: 24,
+	geoip: false,
+	influx: { url: "", org: "", bucket: "", token: "" },
+};
 
 let ingest = null;
+let geoip = null;
 let activeStore = localStore;
 let labels = new Map();
 
@@ -42,6 +55,7 @@ const normalizeMeta = (meta = {}, previous = {}) => {
 		return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
 	};
 	return {
+		geoip: meta.geoip === true,
 		retention_days: clamp(meta.retention_days, 1, 3650, DEFAULTS.retention_days),
 		range_hours: clamp(meta.range_hours, 1, 24 * 3650, DEFAULTS.range_hours),
 		influx,
@@ -70,6 +84,9 @@ const refreshLabels = async () => {
 
 const labelOf = (type, id) => {
 	const row = labels.get(`${type}|${id}`);
+	if (type === "stream") {
+		return row ? `Stream :${row.incoming_port}` : "";
+	}
 	return Array.isArray(row?.domain_names) && row.domain_names.length ? row.domain_names.join(", ") : "";
 };
 
@@ -91,6 +108,8 @@ const internalTrafficStats = {
 			ingest.stop();
 			ingest = null;
 		}
+		geoip?.unload();
+		geoip = null;
 		if (setting?.value !== "enabled") {
 			return;
 		}
@@ -112,7 +131,8 @@ const internalTrafficStats = {
 			}
 		}
 
-		ingest = new Ingest({ store: activeStore, retentionDays: meta.retention_days });
+		geoip = meta.geoip ? new GeoIp() : null;
+		ingest = new Ingest({ store: activeStore, retentionDays: meta.retention_days, geoip });
 		logger.info(`Traffic stats enabled (storage: ${activeStore.type}, retention: ${meta.retention_days} days)`);
 		ingest.start();
 	},
@@ -123,6 +143,8 @@ const internalTrafficStats = {
 	 * @param   {Access} access
 	 * @param   {Object} data
 	 * @param   {Number} [data.hours]
+	 * @param   {String} [data.host_type]  with host_id, only report on this host
+	 * @param   {Number} [data.host_id]
 	 * @returns {Promise}
 	 */
 	getReport: async (access, data = {}) => {
@@ -150,6 +172,16 @@ const internalTrafficStats = {
 			}
 		}
 
+		if (data.host_type) {
+			const host = { host_type: String(data.host_type), host_id: Number.parseInt(data.host_id, 10) };
+			if (!(host.host_type in HOST_MODELS) || !Number.isFinite(host.host_id)) {
+				throw new errs.ValidationError("Invalid host");
+			}
+			// a user who can't see this host gets an empty report rather than another host's numbers
+			const allowed = !hosts || hosts.some((h) => h.host_type === host.host_type && h.host_id === host.host_id);
+			hosts = allowed ? [host] : [];
+		}
+
 		const to = Math.floor(Date.now() / 1000);
 		const from = to - hours * 3600;
 		const step = Math.max(BUCKET_SECONDS, Math.ceil((to - from) / MAX_POINTS / BUCKET_SECONDS) * BUCKET_SECONDS);
@@ -174,7 +206,8 @@ const internalTrafficStats = {
 		return {
 			enabled: true,
 			storage: activeStore.type,
-			error: ingest?.lastError || null,
+			error: ingest?.lastError || geoip?.error || null,
+			geoip: !!geoip?.reader,
 			range: { from, to, step, hours },
 			totals,
 			series: result.series,

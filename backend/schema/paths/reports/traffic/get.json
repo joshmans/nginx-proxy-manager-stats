@@ -19,6 +19,31 @@
 			},
 			"required": false,
 			"description": "Hours to cover. Defaults to the configured display range"
+		},
+		{
+			"in": "query",
+			"name": "host_type",
+			"schema": {
+				"type": "string",
+				"enum": [
+					"proxy",
+					"redirection",
+					"dead",
+					"stream"
+				]
+			},
+			"required": false,
+			"description": "With host_id, only report on this host"
+		},
+		{
+			"in": "query",
+			"name": "host_id",
+			"schema": {
+				"type": "integer",
+				"minimum": 1
+			},
+			"required": false,
+			"description": "Host ID, used with host_type"
 		}
 	],
 	"responses": {
@@ -170,7 +195,8 @@
 											"enum": [
 												"proxy",
 												"redirection",
-												"dead"
+												"dead",
+												"stream"
 											]
 										},
 										"host_id": {
@@ -242,8 +268,26 @@
 												}
 											}
 										}
+									},
+									"country": {
+										"type": "array",
+										"items": {
+											"type": "object",
+											"properties": {
+												"item": {
+													"type": "string"
+												},
+												"hits": {
+													"type": "integer"
+												}
+											}
+										}
 									}
 								}
+							},
+							"geoip": {
+								"type": "boolean",
+								"description": "True when countries are being recorded"
 							}
 						}
 					}

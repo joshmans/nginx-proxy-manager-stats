@@ -140,6 +140,9 @@
 	"action.renew": {
 		"defaultMessage": "Uuenda"
 	},
+	"action.stats": {
+		"defaultMessage": "Statistika"
+	},
 	"action.view-details": {
 		"defaultMessage": "Vaata üksikasju"
 	},
@@ -755,6 +758,12 @@
 	"settings.traffic-stats.enable.hint": {
 		"defaultMessage": "Loeb hostide juurdepääsulogisid ja näitab päringute statistikat töölaual. Olemasolevad logid imporditakse, kui see sisse lülitatakse."
 	},
+	"settings.traffic-stats.geoip": {
+		"defaultMessage": "Salvesta klientide riigid"
+	},
+	"settings.traffic-stats.geoip.hint": {
+		"defaultMessage": "Kasutab kohalikku IP-riigi andmebaasi. Kui paned oma .mmdb faili kausta /data/geoip, kasutatakse seda, vastasel juhul laaditakse alla tasuta DB-IP Lite andmebaas ja värskendatakse seda igakuiselt. Kehtib ainult edaspidi loetud liikluse kohta."
+	},
 	"settings.traffic-stats.influx": {
 		"defaultMessage": "InfluxDB (valikuline)"
 	},
@@ -818,6 +827,9 @@
 	"traffic.bandwidth": {
 		"defaultMessage": "Ribalaius"
 	},
+	"traffic.disabled": {
+		"defaultMessage": "Liikluse statistika on välja lülitatud. Administraator saab selle seadetes sisse lülitada."
+	},
 	"traffic.error-rate": {
 		"defaultMessage": "Veamäär"
 	},
@@ -832,6 +844,9 @@
 	},
 	"traffic.title": {
 		"defaultMessage": "Liiklus"
+	},
+	"traffic.top-countries": {
+		"defaultMessage": "Populaarseimad riigid"
 	},
 	"traffic.top-hosts": {
 		"defaultMessage": "Hõivatuimad hostid"

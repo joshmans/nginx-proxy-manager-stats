@@ -119,7 +119,7 @@ const influxStore = (cfg, labelOf = () => "") => {
 
 		async query({ from, to, step, hosts }) {
 			if (hosts && hosts.length === 0) {
-				return { series: [], hosts: [], top: { ip: [], path: [] } };
+				return { series: [], hosts: [], top: { ip: [], path: [], country: [] } };
 			}
 			const common = `from(bucket: "${escapeFlux(cfg.bucket)}")
 				|> range(start: ${from}, stop: ${to})
@@ -167,7 +167,7 @@ const influxStore = (cfg, labelOf = () => "") => {
 				series: [...byTs.values()].sort((a, b) => a.ts - b.ts),
 				hosts: [...byHost.values()],
 				// Client IPs and paths are not exported: as InfluxDB tags they'd create unbounded series.
-				top: { ip: [], path: [] },
+				top: { ip: [], path: [], country: [] },
 			};
 		},
 	};

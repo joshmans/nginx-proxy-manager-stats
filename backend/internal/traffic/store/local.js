@@ -1,6 +1,7 @@
 import db from "../../../db.js";
 
 const CHUNK = 200;
+const TOP_KEEP = 25;
 
 const num = (v) => Number(v) || 0;
 
@@ -48,6 +49,39 @@ const localStore = {
 	async prune(cutoff) {
 		await db()("traffic_stat").where("bucket", "<", cutoff).del();
 		await db()("traffic_stat_top").where("bucket", "<", cutoff).del();
+		await localStore.trimTops();
+	},
+
+	/**
+	 * Hours that are over only need their busiest items, so cut each older
+	 * hour/host/kind group down to TOP_KEEP rows.
+	 */
+	async trimTops() {
+		const knex = db();
+		const before = Math.floor(Date.now() / 1000) - 2 * 3600;
+		const groups = await knex("traffic_stat_top")
+			.select("bucket", "host_type", "host_id", "kind")
+			.count("* as c")
+			.where("bucket", "<", before)
+			.groupBy("bucket", "host_type", "host_id", "kind")
+			.having(knex.raw("count(*)"), ">", TOP_KEEP);
+		for (const g of groups) {
+			const extra = await knex("traffic_stat_top")
+				.select("item")
+				.where({ bucket: g.bucket, host_type: g.host_type, host_id: g.host_id, kind: g.kind })
+				.orderBy("hits", "desc")
+				.offset(TOP_KEEP)
+				.limit(1000000);
+			for (let i = 0; i < extra.length; i += CHUNK) {
+				await knex("traffic_stat_top")
+					.where({ bucket: g.bucket, host_type: g.host_type, host_id: g.host_id, kind: g.kind })
+					.whereIn(
+						"item",
+						extra.slice(i, i + CHUNK).map((e) => e.item),
+					)
+					.del();
+			}
+		}
 	},
 
 	async clear() {
@@ -61,7 +95,7 @@ const localStore = {
 	async query({ from, to, step, hosts }) {
 		const knex = db();
 		if (hosts && hosts.length === 0) {
-			return { series: [], hosts: [], top: { ip: [], path: [] } };
+			return { series: [], hosts: [], top: { ip: [], path: [], country: [] } };
 		}
 
 		const scope = (builder) => {
@@ -101,7 +135,7 @@ const localStore = {
 			.groupBy("host_type", "host_id");
 
 		const top = {};
-		for (const kind of ["ip", "path"]) {
+		for (const kind of ["ip", "path", "country"]) {
 			const rows = await knex("traffic_stat_top")
 				.select("item", knex.raw("SUM(hits) as hits"))
 				.where("kind", kind)

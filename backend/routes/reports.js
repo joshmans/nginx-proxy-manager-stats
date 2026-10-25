@@ -42,7 +42,11 @@ router
 	 */
 	.get(async (req, res, next) => {
 		try {
-			const data = await internalTrafficStats.getReport(res.locals.access, { hours: req.query.hours });
+			const data = await internalTrafficStats.getReport(res.locals.access, {
+				hours: req.query.hours,
+				host_type: req.query.host_type,
+				host_id: req.query.host_id,
+			});
 			res.status(200).send(data);
 		} catch (err) {
 			debug(logger, `${req.method.toUpperCase()} ${req.path}: ${err}`);

@@ -1,9 +1,15 @@
 import * as api from "./base";
 import type { TrafficReport } from "./models";
 
-export async function getTrafficReport(hours?: number): Promise<TrafficReport> {
+export interface TrafficReportQuery {
+	hours?: number;
+	hostType?: string;
+	hostId?: number;
+}
+
+export async function getTrafficReport({ hours, hostType, hostId }: TrafficReportQuery = {}): Promise<TrafficReport> {
 	return await api.get({
 		url: "/reports/traffic",
-		params: hours ? { hours } : undefined,
+		params: { hours, hostType, hostId },
 	});
 }
