@@ -746,6 +746,33 @@
 	"settings.default-site.redirect": {
 		"defaultMessage": "Redirect"
 	},
+	"settings.traffic-stats": {
+		"defaultMessage": "Traffic Statistics"
+	},
+	"settings.traffic-stats.enable": {
+		"defaultMessage": "Collect traffic statistics"
+	},
+	"settings.traffic-stats.enable.hint": {
+		"defaultMessage": "Reads the host access logs and shows request statistics on the dashboard. Existing logs are imported when this is switched on."
+	},
+	"settings.traffic-stats.influx": {
+		"defaultMessage": "InfluxDB (optional)"
+	},
+	"settings.traffic-stats.influx.hint": {
+		"defaultMessage": "Fill in all four fields to store the statistics in an InfluxDB 2.x bucket, for use with Grafana, instead of NPM's own database. Switching storage re-imports the existing logs. Retention is then controlled by the InfluxDB bucket, and top client IPs and paths are not exported."
+	},
+	"settings.traffic-stats.range": {
+		"defaultMessage": "Default dashboard range (hours)"
+	},
+	"settings.traffic-stats.retention": {
+		"defaultMessage": "Keep history for (days)"
+	},
+	"settings.traffic-stats.using-influx": {
+		"defaultMessage": "Statistics will be written to InfluxDB."
+	},
+	"settings.traffic-stats.using-local": {
+		"defaultMessage": "Statistics are kept in NPM's own database."
+	},
 	"setup.preamble": {
 		"defaultMessage": "Get started by creating your admin account."
 	},
@@ -784,6 +811,36 @@
 	},
 	"test": {
 		"defaultMessage": "Test"
+	},
+	"traffic.active-hosts": {
+		"defaultMessage": "Active hosts"
+	},
+	"traffic.bandwidth": {
+		"defaultMessage": "Bandwidth"
+	},
+	"traffic.error-rate": {
+		"defaultMessage": "Error rate"
+	},
+	"traffic.errors-by-host": {
+		"defaultMessage": "Errors by host"
+	},
+	"traffic.no-data": {
+		"defaultMessage": "No data"
+	},
+	"traffic.requests": {
+		"defaultMessage": "Requests"
+	},
+	"traffic.title": {
+		"defaultMessage": "Traffic"
+	},
+	"traffic.top-hosts": {
+		"defaultMessage": "Busiest hosts"
+	},
+	"traffic.top-ips": {
+		"defaultMessage": "Top client IPs"
+	},
+	"traffic.top-paths": {
+		"defaultMessage": "Top paths"
 	},
 	"update-available": {
 		"defaultMessage": "Update Available: {latestVersion}"

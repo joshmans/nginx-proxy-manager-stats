@@ -229,6 +229,26 @@ export interface Setting {
 	meta?: Record<string, any>;
 }
 
+export interface TrafficCounts {
+	requests: number;
+	s2xx: number;
+	s3xx: number;
+	s4xx: number;
+	s5xx: number;
+	bytes: number;
+}
+
+export interface TrafficReport {
+	enabled: boolean;
+	storage?: "local" | "influxdb";
+	error?: string | null;
+	range?: { from: number; to: number; step: number; hours: number };
+	totals?: TrafficCounts;
+	series?: Array<TrafficCounts & { ts: number }>;
+	hosts?: Array<TrafficCounts & { host_type: string; host_id: number; label: string }>;
+	top?: { ip: Array<{ item: string; hits: number }>; path: Array<{ item: string; hits: number }> };
+}
+
 export interface DNSProvider {
 	id: string;
 	name: string;

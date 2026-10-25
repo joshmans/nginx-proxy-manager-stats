@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import Aggregator from "./aggregator.js";
+import { parseFileName, parseLine, parseTime } from "./parser.js";
+
+const proxyLine =
+	'[25/Oct/2026:10:11:12 +0100] - 200 502 - POST https app.example.com "/api/x?y=1" [Client 203.0.113.9] [Length 1234] [Gzip -] [Sent-to 10.0.0.2] "Mozilla/5.0" "-"';
+const standardLine =
+	'[25/Oct/2026:10:11:12 +0000] 301 - GET http old.example.com "/" [Client 198.51.100.1] [Length 162] [Gzip -] "curl" "-"';
+
+test("parseTime applies the timezone offset", () => {
+	assert.equal(parseTime("25/Oct/2026:10:11:12 +0100"), Date.UTC(2026, 9, 25, 9, 11, 12) / 1000);
+	assert.equal(parseTime("garbage"), null);
+});
+
+test("parses the proxy log format", () => {
+	const rec = parseLine(proxyLine);
+	assert.equal(rec.status, 502);
+	assert.equal(rec.method, "POST");
+	assert.equal(rec.host, "app.example.com");
+	assert.equal(rec.path, "/api/x");
+	assert.equal(rec.ip, "203.0.113.9");
+	assert.equal(rec.bytes, 1234);
+});
+
+test("parses the standard log format", () => {
+	const rec = parseLine(standardLine);
+	assert.equal(rec.status, 301);
+	assert.equal(rec.ip, "198.51.100.1");
+	assert.equal(rec.bytes, 162);
+});
+
+test("ignores lines it does not understand", () => {
+	assert.equal(parseLine("not a log line"), null);
+	assert.equal(parseLine(""), null);
+});
+
+test("maps log file names to hosts", () => {
+	assert.deepEqual(parseFileName("proxy-host-12_access.log"), { host_type: "proxy", host_id: 12 });
+	assert.deepEqual(parseFileName("dead-host-3_access.log"), { host_type: "dead", host_id: 3 });
+	assert.equal(parseFileName("proxy-host-12_error.log"), null);
+	assert.equal(parseFileName("stream-1_access.log"), null);
+	assert.equal(parseFileName("../proxy-host-1_access.log"), null);
+});
+
+test("aggregates into 5 minute buckets by status class", () => {
+	const agg = new Aggregator();
+	const host = { host_type: "proxy", host_id: 1 };
+	agg.add(host, parseLine(proxyLine));
+	agg.add(host, parseLine(proxyLine.replace(" 502 ", " 200 ").replace(" - 200 200 ", " - 200 200 ")));
+	const { buckets, tops } = agg.drain();
+	assert.equal(buckets.length, 1);
+	assert.equal(buckets[0].requests, 2);
+	assert.equal(buckets[0].bytes, 2468);
+	assert.ok(tops.some((t) => t.kind === "ip" && t.item === "203.0.113.9" && t.hits === 2));
+	assert.equal(agg.size, 0);
+});

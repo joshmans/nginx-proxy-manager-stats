@@ -746,6 +746,33 @@
 	"settings.default-site.redirect": {
 		"defaultMessage": "Ümbersuunamine"
 	},
+	"settings.traffic-stats": {
+		"defaultMessage": "Liikluse statistika"
+	},
+	"settings.traffic-stats.enable": {
+		"defaultMessage": "Kogu liikluse statistikat"
+	},
+	"settings.traffic-stats.enable.hint": {
+		"defaultMessage": "Loeb hostide juurdepääsulogisid ja näitab päringute statistikat töölaual. Olemasolevad logid imporditakse, kui see sisse lülitatakse."
+	},
+	"settings.traffic-stats.influx": {
+		"defaultMessage": "InfluxDB (valikuline)"
+	},
+	"settings.traffic-stats.influx.hint": {
+		"defaultMessage": "Täida kõik neli välja, et salvestada statistika NPM-i enda andmebaasi asemel InfluxDB 2.x kogumikku (bucket), mida saab kasutada Grafanaga. Salvestuskoha vahetamisel imporditakse olemasolevad logid uuesti. Säilitamist juhib siis InfluxDB kogumik ning populaarseimaid kliendi IP-sid ja teid ei ekspordita."
+	},
+	"settings.traffic-stats.range": {
+		"defaultMessage": "Töölaua vaikevahemik (tundides)"
+	},
+	"settings.traffic-stats.retention": {
+		"defaultMessage": "Ajaloo säilitamine (päevades)"
+	},
+	"settings.traffic-stats.using-influx": {
+		"defaultMessage": "Statistika kirjutatakse InfluxDB-sse."
+	},
+	"settings.traffic-stats.using-local": {
+		"defaultMessage": "Statistikat hoitakse NPM-i enda andmebaasis."
+	},
 	"setup.preamble": {
 		"defaultMessage": "Alustuseks loo endale administraatori konto."
 	},
@@ -784,6 +811,36 @@
 	},
 	"test": {
 		"defaultMessage": "Testi"
+	},
+	"traffic.active-hosts": {
+		"defaultMessage": "Aktiivsed hostid"
+	},
+	"traffic.bandwidth": {
+		"defaultMessage": "Ribalaius"
+	},
+	"traffic.error-rate": {
+		"defaultMessage": "Veamäär"
+	},
+	"traffic.errors-by-host": {
+		"defaultMessage": "Vead hostide kaupa"
+	},
+	"traffic.no-data": {
+		"defaultMessage": "Andmeid pole"
+	},
+	"traffic.requests": {
+		"defaultMessage": "Päringud"
+	},
+	"traffic.title": {
+		"defaultMessage": "Liiklus"
+	},
+	"traffic.top-hosts": {
+		"defaultMessage": "Hõivatuimad hostid"
+	},
+	"traffic.top-ips": {
+		"defaultMessage": "Populaarseimad kliendi IP-d"
+	},
+	"traffic.top-paths": {
+		"defaultMessage": "Populaarseimad teed"
 	},
 	"update-available": {
 		"defaultMessage": "Uuendus saadaval: {latestVersion}"
