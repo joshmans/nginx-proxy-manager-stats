@@ -14,29 +14,31 @@ const TrafficCard = () => {
 
 	return (
 		<div className="col-12 mb-4">
-			<div className="d-flex flex-wrap justify-content-between align-items-end mb-3">
-				<div>
-					<h3 className="mb-0">
-						<T id="traffic.title" />
-					</h3>
-					<div className="text-secondary">
-						<T id="traffic.subtitle" />
+			<div className="w-100">
+				<div className="d-flex flex-wrap justify-content-between align-items-end mb-3">
+					<div>
+						<h3 className="mb-0">
+							<T id="traffic.title" />
+						</h3>
+						<div className="text-secondary">
+							<T id="traffic.subtitle" />
+						</div>
+					</div>
+					<div className="btn-group">
+						{RANGES.map((r) => (
+							<button
+								key={r.hours}
+								type="button"
+								className={`btn btn-sm ${active === r.hours ? "btn-primary" : "btn-outline-secondary"}`}
+								onClick={() => setHours(r.hours)}
+							>
+								{r.label}
+							</button>
+						))}
 					</div>
 				</div>
-				<div className="btn-group">
-					{RANGES.map((r) => (
-						<button
-							key={r.hours}
-							type="button"
-							className={`btn btn-sm ${active === r.hours ? "btn-primary" : "btn-outline-secondary"}`}
-							onClick={() => setHours(r.hours)}
-						>
-							{r.label}
-						</button>
-					))}
-				</div>
+				<TrafficPanel data={data} />
 			</div>
-			<TrafficPanel data={data} />
 		</div>
 	);
 };
