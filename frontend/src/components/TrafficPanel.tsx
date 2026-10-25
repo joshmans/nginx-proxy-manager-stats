@@ -270,7 +270,7 @@ const TrafficPanel = ({ data, single }: PanelProps) => {
 	const points = Array.from({ length: slots + 1 }, (_, i) => first + i * range.step);
 	const byTs = new Map((data.series ?? []).map((p) => [p.ts, p]));
 	const label = (ts: number) => formatTime(ts, range.hours);
-	const prevHosts = new Map((previous?.hosts ?? []).map((h) => [`${h.host_type}|${h.host_id}`, h]));
+	const prevHosts = new Map((previous?.hosts ?? []).map((h) => [`${h.hostType}|${h.hostId}`, h]));
 
 	return (
 		<>
@@ -419,9 +419,9 @@ const TrafficPanel = ({ data, single }: PanelProps) => {
 								</thead>
 								<tbody>
 									{(data.hosts ?? []).map((h) => {
-										const before = prevHosts.get(`${h.host_type}|${h.host_id}`);
+										const before = prevHosts.get(`${h.hostType}|${h.hostId}`);
 										return (
-											<tr key={`${h.host_type}|${h.host_id}`}>
+											<tr key={`${h.hostType}|${h.hostId}`}>
 												<td className="text-truncate" style={{ maxWidth: 260 }} title={h.label}>
 													{h.label}
 												</td>

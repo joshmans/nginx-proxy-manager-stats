@@ -247,10 +247,10 @@ export interface TrafficReport {
 	totals?: TrafficCounts;
 	previous?: {
 		totals: TrafficCounts;
-		hosts: Array<Partial<TrafficCounts> & { host_type: string; host_id: number }>;
+		hosts: Array<Partial<TrafficCounts> & { hostType: string; hostId: number }>;
 	} | null;
 	series?: Array<TrafficCounts & { ts: number }>;
-	hosts?: Array<TrafficCounts & { host_type: string; host_id: number; label: string }>;
+	hosts?: Array<TrafficCounts & { hostType: string; hostId: number; label: string }>;
 	top?: {
 		ip: Array<{ item: string; hits: number; country?: string | null }>;
 		path: Array<{ item: string; hits: number }>;

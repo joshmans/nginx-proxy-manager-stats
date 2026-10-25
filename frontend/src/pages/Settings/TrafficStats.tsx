@@ -5,6 +5,7 @@ import { Button, Loading } from "src/components";
 import { useSetSetting, useSetting } from "src/hooks";
 import { T } from "src/locale";
 import { showObjectSuccess } from "src/notifications";
+import { toFormValues, toPayload } from "./trafficStatsForm";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function TrafficStats() {
@@ -19,21 +20,7 @@ export default function TrafficStats() {
 		setIsSubmitting(true);
 		setErrorMsg(null);
 
-		const payload = {
-			id: "traffic-stats",
-			value: values.enabled ? "enabled" : "disabled",
-			meta: {
-				geoip: !!values.geoip,
-				retention_days: Number(values.retention_days),
-				range_hours: Number(values.range_hours),
-				influx: {
-					url: values.influx_url.trim(),
-					org: values.influx_org.trim(),
-					bucket: values.influx_bucket.trim(),
-					token: values.influx_token,
-				},
-			},
-		};
+		const payload = toPayload(values);
 
 		setSetting(payload, {
 			onError: (err: any) => setErrorMsg(<T id={err.message} />),
@@ -70,32 +57,10 @@ export default function TrafficStats() {
 		);
 	}
 
-	const meta = data?.meta || {};
-	const influx = meta.influx || {};
-
 	return (
-		<Formik
-			initialValues={
-				{
-					enabled: data?.value === "enabled",
-					geoip: meta.geoip === true,
-					retention_days: meta.retention_days ?? 30,
-					range_hours: meta.range_hours ?? 24,
-					influx_url: influx.url || "",
-					influx_org: influx.org || "",
-					influx_bucket: influx.bucket || "",
-					influx_token: influx.token || "",
-				} as any
-			}
-			onSubmit={onSubmit}
-		>
+		<Formik initialValues={toFormValues(data) as any} onSubmit={onSubmit}>
 			{({ values }) => {
-				const useInflux = !!(
-					values.influx_url &&
-					values.influx_org &&
-					values.influx_bucket &&
-					values.influx_token
-				);
+				const useInflux = !!(values.influxUrl && values.influxOrg && values.influxBucket && values.influxToken);
 				return (
 					<Form>
 						<div className="card-body">
@@ -127,12 +92,12 @@ export default function TrafficStats() {
 								<>
 									<div className="row mb-3">
 										<div className="col-md-6">
-											<label className="form-label" htmlFor="retention_days">
+											<label className="form-label" htmlFor="retentionDays">
 												<T id="settings.traffic-stats.retention" />
 											</label>
 											<Field
-												id="retention_days"
-												name="retention_days"
+												id="retentionDays"
+												name="retentionDays"
 												type="number"
 												min={1}
 												max={3650}
@@ -145,7 +110,7 @@ export default function TrafficStats() {
 											</label>
 											<Field
 												id="range_hours"
-												name="range_hours"
+												name="rangeHours"
 												type="number"
 												min={1}
 												className="form-control"
@@ -186,7 +151,7 @@ export default function TrafficStats() {
 											</label>
 											<Field
 												id="influx_url"
-												name="influx_url"
+												name="influxUrl"
 												type="text"
 												placeholder="http://influxdb:8086"
 												autoComplete="off"
@@ -199,7 +164,7 @@ export default function TrafficStats() {
 											</label>
 											<Field
 												id="influx_org"
-												name="influx_org"
+												name="influxOrg"
 												type="text"
 												autoComplete="off"
 												className="form-control"
@@ -211,7 +176,7 @@ export default function TrafficStats() {
 											</label>
 											<Field
 												id="influx_bucket"
-												name="influx_bucket"
+												name="influxBucket"
 												type="text"
 												autoComplete="off"
 												className="form-control"
@@ -223,7 +188,7 @@ export default function TrafficStats() {
 											</label>
 											<Field
 												id="influx_token"
-												name="influx_token"
+												name="influxToken"
 												type="password"
 												autoComplete="new-password"
 												className="form-control"
