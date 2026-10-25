@@ -74,6 +74,41 @@ const CountryMark = ({ code }: { code?: string | null }) => {
 	return <IconQuestionMark size={16} className="text-secondary" />;
 };
 
+const REASONS: Record<number, string> = {
+	200: "OK",
+	201: "Created",
+	202: "Accepted",
+	204: "No Content",
+	206: "Partial Content",
+	301: "Moved Permanently",
+	302: "Found",
+	303: "See Other",
+	304: "Not Modified",
+	307: "Temporary Redirect",
+	308: "Permanent Redirect",
+	400: "Bad Request",
+	401: "Unauthorized",
+	403: "Forbidden",
+	404: "Not Found",
+	405: "Method Not Allowed",
+	408: "Request Timeout",
+	409: "Conflict",
+	413: "Payload Too Large",
+	414: "URI Too Long",
+	416: "Range Not Satisfiable",
+	421: "Misdirected Request",
+	429: "Too Many Requests",
+	444: "No Response",
+	499: "Client Closed Request",
+	500: "Internal Server Error",
+	501: "Not Implemented",
+	502: "Bad Gateway",
+	503: "Service Unavailable",
+	504: "Gateway Timeout",
+};
+
+const classOf = (code: number) => CLASSES.find((c) => c.label === `${Math.floor(code / 100)}xx`);
+
 const pct = (part: number, whole: number) => (whole ? (part / whole) * 100 : 0);
 
 // Change against the previous period. `upIsBad` flips the colours for things like error counts.
@@ -270,6 +305,8 @@ const TrafficPanel = ({ data, single }: PanelProps) => {
 	const points = Array.from({ length: slots + 1 }, (_, i) => first + i * range.step);
 	const byTs = new Map((data.series ?? []).map((p) => [p.ts, p]));
 	const label = (ts: number) => formatTime(ts, range.hours);
+	// Shares are of the counted codes, since codes are only counted from when the setting was switched on
+	const statusTotal = (data.statuses ?? []).reduce((sum, st) => sum + st.total, 0);
 	const prevHosts = new Map((previous?.hosts ?? []).map((h) => [`${h.hostType}|${h.hostId}`, h]));
 
 	return (
@@ -393,6 +430,55 @@ const TrafficPanel = ({ data, single }: PanelProps) => {
 					</div>
 				))}
 			</div>
+
+			{data.statusCodes && (data.statuses?.length ?? 0) > 0 && (
+				<>
+					<h4 className="mb-1 mt-4">
+						<T id="traffic.by-status" />
+					</h4>
+					<div className="text-secondary small mb-2">
+						<T id="traffic.by-status.hint" />
+					</div>
+					<div className="row row-cards mb-3">
+						{(data.statuses ?? []).slice(0, 12).map((st) => {
+							const color = classOf(st.code)?.color ?? "var(--tblr-secondary)";
+							const slots = new Map<number, Point>(
+								st.series.map((p) => [
+									p.ts,
+									{ ts: p.ts, requests: p.requests, s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0, bytes: 0 },
+								]),
+							);
+							return (
+								<div key={st.code} className="col-6 col-lg-3">
+									<div className="card card-sm h-100">
+										<div className="card-body">
+											<div className="d-flex justify-content-between align-items-baseline">
+												<div className="h2 mb-0" style={{ color }}>
+													{st.code}
+												</div>
+												<span className="text-secondary small">
+													{pct(st.total, statusTotal).toFixed(1)}%
+												</span>
+											</div>
+											<div className="text-secondary small mb-2">
+												{REASONS[st.code] ?? ""} · {st.total.toLocaleString()}
+											</div>
+											<Bars
+												points={points}
+												byTs={slots}
+												value={(p) => p.requests}
+												color={color}
+												height={44}
+												label={label}
+											/>
+										</div>
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				</>
+			)}
 
 			{!single && (
 				<div className="card mb-3">

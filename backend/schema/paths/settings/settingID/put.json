@@ -95,6 +95,10 @@
 								"geoip": {
 									"type": "boolean",
 									"description": "Traffic stats: record the country of each client, using a local GeoIP database (DB-IP Lite is downloaded if none is supplied)"
+								},
+								"status_codes": {
+									"type": "boolean",
+									"description": "Traffic stats: also record each exact status code (200, 404, 502 ...), hourly"
 								}
 							},
 							"example": {

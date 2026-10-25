@@ -97,3 +97,20 @@ test("recognises local addresses", () => {
 		assert.equal(isLocalIp(ip), false, ip);
 	}
 });
+
+test("counts exact status codes only when asked to", () => {
+	const host = { host_type: "proxy", host_id: 1 };
+	const rec = { ts: 1792960000, status: 404, ip: "1.2.3.4", path: "/x", bytes: 1 };
+	const off = new Aggregator();
+	off.add(host, rec);
+	assert.ok(!off.drain().tops.some((t) => t.kind === "status"));
+	const on = new Aggregator({ statusCodes: true });
+	on.add(host, rec);
+	on.add(host, { ...rec, status: 200 });
+	on.add(host, rec);
+	const tops = on.drain().tops.filter((t) => t.kind === "status");
+	assert.deepEqual(tops.map((t) => [t.item, t.hits]).sort(), [
+		["200", 1],
+		["404", 2],
+	]);
+});

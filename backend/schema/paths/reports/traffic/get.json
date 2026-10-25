@@ -365,6 +365,39 @@
 										}
 									}
 								}
+							},
+							"statusCodes": {
+								"type": "boolean",
+								"description": "True when exact status codes are being recorded"
+							},
+							"statuses": {
+								"type": "array",
+								"description": "Per exact status code, busiest first. Only when status codes are recorded",
+								"items": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "integer"
+										},
+										"total": {
+											"type": "integer"
+										},
+										"series": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"ts": {
+														"type": "integer"
+													},
+													"requests": {
+														"type": "integer"
+													}
+												}
+											}
+										}
+									}
+								}
 							}
 						}
 					}

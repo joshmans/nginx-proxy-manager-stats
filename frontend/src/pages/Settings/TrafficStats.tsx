@@ -138,6 +138,27 @@ export default function TrafficStats() {
 											</div>
 										)}
 									</Field>
+									<Field name="statusCodes">
+										{({ field }: any) => (
+											<div className="mb-3">
+												<label className="form-check form-switch">
+													<input
+														id="traffic-status-codes"
+														className="form-check-input"
+														type="checkbox"
+														{...field}
+														checked={!!field.value}
+													/>
+													<span className="form-check-label">
+														<T id="settings.traffic-stats.status-codes" />
+													</span>
+												</label>
+												<div className="form-hint">
+													<T id="settings.traffic-stats.status-codes.hint" />
+												</div>
+											</div>
+										)}
+									</Field>
 									<h4 className="mt-4">
 										<T id="settings.traffic-stats.influx" />
 									</h4>

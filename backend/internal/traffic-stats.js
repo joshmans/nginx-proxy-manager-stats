@@ -57,6 +57,7 @@ const normalizeMeta = (meta = {}, previous = {}) => {
 	};
 	return {
 		geoip: meta.geoip === true,
+		status_codes: meta.status_codes === true,
 		retention_days: clamp(meta.retention_days, 1, 3650, DEFAULTS.retention_days),
 		range_hours: clamp(meta.range_hours, 1, 24 * 3650, DEFAULTS.range_hours),
 		influx,
@@ -143,7 +144,12 @@ const internalTrafficStats = {
 		}
 
 		geoip = meta.geoip ? new GeoIp() : null;
-		ingest = new Ingest({ store: activeStore, retentionDays: meta.retention_days, geoip });
+		ingest = new Ingest({
+			store: activeStore,
+			retentionDays: meta.retention_days,
+			geoip,
+			statusCodes: meta.status_codes,
+		});
 		logger.info(`Traffic stats enabled (storage: ${activeStore.type}, retention: ${meta.retention_days} days)`);
 		ingest.start();
 	},
@@ -199,7 +205,7 @@ const internalTrafficStats = {
 
 		let result;
 		try {
-			result = await activeStore.query({ from, to, step, hosts });
+			result = await activeStore.query({ from, to, step, hosts, statuses: meta.status_codes });
 		} catch (err) {
 			logger.error(`Traffic stats query failed: ${err.message}`);
 			throw new errs.ValidationError(`Could not read traffic stats: ${err.message}`);
@@ -244,10 +250,12 @@ const internalTrafficStats = {
 			storage: activeStore.type,
 			error: ingest?.lastError || geoip?.error || null,
 			geoip: !!geoip?.reader,
+			statusCodes: meta.status_codes,
 			range: { from, to, step, hours },
 			totals,
 			previous,
 			series: result.series,
+			statuses: result.statuses,
 			hosts: result.hosts,
 			top: result.top,
 		};

@@ -25,8 +25,10 @@ class Ingest {
 	 * @param {Object}   opts.store          one of the traffic stores
 	 * @param {Number}   opts.retentionDays  lines older than this are skipped
 	 * @param {Object}   [opts.geoip]        a GeoIp instance, to add countries
+	 * @param {Boolean}  [opts.statusCodes]  also count each exact status code
 	 */
-	constructor({ store, retentionDays, geoip = null }) {
+	constructor({ store, retentionDays, geoip = null, statusCodes = false }) {
+		this.statusCodes = statusCodes;
 		this.store = store;
 		this.retentionDays = retentionDays;
 		this.geoip = geoip;
@@ -125,7 +127,7 @@ class Ingest {
 			return;
 		}
 
-		const agg = new Aggregator();
+		const agg = new Aggregator({ statusCodes: this.statusCodes });
 		let position = Number(cursor.position);
 		const rotated = String(stat.ino) !== cursor.inode || stat.size < position;
 
@@ -221,7 +223,7 @@ class Ingest {
 	 */
 	async #backfill(file, host, stat) {
 		const full = path.join(LOG_DIR, file);
-		const agg = new Aggregator();
+		const agg = new Aggregator({ statusCodes: this.statusCodes });
 		const cutoff = this.#cutoff;
 		const onLine = (line) => {
 			const rec = this.#parse(line, host);

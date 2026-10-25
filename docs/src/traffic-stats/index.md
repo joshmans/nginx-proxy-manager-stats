@@ -39,7 +39,18 @@ Users who can only see their own hosts only see the numbers for those hosts.
 | Keep history for (days) | 30 | Older data is deleted. Log lines older than this are skipped when importing. |
 | Default dashboard range (hours) | 24 | The range shown when the dashboard opens. |
 | Record client countries | off | See below. |
+| Record exact status codes | off | See below. |
 | InfluxDB | empty | See below. |
+
+## Exact status codes
+
+The dashboard always breaks responses down by class (2xx, 3xx, 4xx, 5xx). If you also switch on
+**Record exact status codes**, each exact code (200, 404, 502 and so on) is counted per hour, and the
+dashboard gains a **By status code** section with a card for each of the busiest codes.
+
+- The per-code trends have hourly resolution, unlike the 5 minute class charts.
+- Codes are only counted for log lines read after the setting is switched on.
+- They are not written to InfluxDB.
 
 ## Client countries
 

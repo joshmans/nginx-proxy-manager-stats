@@ -92,10 +92,10 @@ const localStore = {
 	/**
 	 * @param {{from: Number, to: Number, step: Number, hosts: Array|null}} q  hosts: allowed {host_type, host_id}, null for all
 	 */
-	async query({ from, to, step, hosts }) {
+	async query({ from, to, step, hosts, statuses: wantStatuses = false }) {
 		const knex = db();
 		if (hosts && hosts.length === 0) {
-			return { series: [], hosts: [], top: { ip: [], path: [], country: [] } };
+			return { series: [], hosts: [], statuses: [], top: { ip: [], path: [], country: [] } };
 		}
 
 		const scope = (builder) => {
@@ -146,6 +146,25 @@ const localStore = {
 			top[kind] = rows.map((r) => ({ item: r.item, hits: num(r.hits) }));
 		}
 
+		// Exact status codes are only kept (hourly) when the extra is switched on
+		const statuses = [];
+		if (wantStatuses) {
+			const rows = await knex("traffic_stat_top")
+				.select("item", knex.raw(`${tsExpr} as ts`), knex.raw("SUM(hits) as hits"))
+				.where("kind", "status")
+				.modify(scope)
+				.groupByRaw(`item, ${tsExpr}`)
+				.orderBy("ts");
+			const byCode = new Map();
+			for (const r of rows) {
+				const entry = byCode.get(r.item) || { code: Number(r.item), total: 0, series: [] };
+				entry.total += num(r.hits);
+				entry.series.push({ ts: num(r.ts), requests: num(r.hits) });
+				byCode.set(r.item, entry);
+			}
+			statuses.push(...[...byCode.values()].sort((a, b) => b.total - a.total));
+		}
+
 		const norm = (r) => ({
 			requests: num(r.requests),
 			s2xx: num(r.s2xx),
@@ -157,6 +176,7 @@ const localStore = {
 		return {
 			series: seriesRows.map((r) => ({ ts: num(r.ts), ...norm(r) })),
 			hosts: hostRows.map((r) => ({ host_type: r.host_type, host_id: r.host_id, ...norm(r) })),
+			statuses,
 			top,
 		};
 	},

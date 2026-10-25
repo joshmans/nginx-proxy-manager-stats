@@ -776,6 +776,12 @@
 	"settings.traffic-stats.retention": {
 		"defaultMessage": "Ajaloo säilitamine (päevades)"
 	},
+	"settings.traffic-stats.status-codes": {
+		"defaultMessage": "Salvesta täpsed olekukoodid"
+	},
+	"settings.traffic-stats.status-codes.hint": {
+		"defaultMessage": "Loeb ka iga täpset olekukoodi (200, 404, 502 jne) tunnis, et näidata töölaual koodide kaupa jaotust. Kehtib ainult edaspidi loetud liikluse kohta ning InfluxDB kasutamisel seda ei säilitata."
+	},
 	"settings.traffic-stats.using-influx": {
 		"defaultMessage": "Statistika kirjutatakse InfluxDB-sse."
 	},
@@ -823,6 +829,12 @@
 	},
 	"traffic.bandwidth": {
 		"defaultMessage": "Ribalaius"
+	},
+	"traffic.by-status": {
+		"defaultMessage": "Olekukoodide kaupa"
+	},
+	"traffic.by-status.hint": {
+		"defaultMessage": "Kõige sagedasemad täpsed olekukoodid tunnipõhise lahutusega."
 	},
 	"traffic.class-over-time": {
 		"defaultMessage": "Klasside kaupa ajas"

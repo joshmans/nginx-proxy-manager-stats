@@ -35,6 +35,7 @@ describe("traffic stats settings form", () => {
 		const payload = toPayload(form);
 		expect(payload.value).toBe("enabled");
 		expect(payload.meta?.retentionDays).toBe(60);
+		expect(payload.meta?.statusCodes).toBe(false);
 		expect(payload.meta?.influx.token).toBe("********");
 	});
 });

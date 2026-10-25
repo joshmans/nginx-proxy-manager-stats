@@ -7,7 +7,12 @@ const ITEM_MAX = 255;
  * Accumulates parsed log records in memory until they're flushed to a store.
  */
 class Aggregator {
-	constructor() {
+	/**
+	 * @param {Object}  [opts]
+	 * @param {Boolean} [opts.statusCodes]  also count each exact status code (hourly)
+	 */
+	constructor({ statusCodes = false } = {}) {
+		this.statusCodes = statusCodes;
 		this.reset();
 	}
 
@@ -49,6 +54,9 @@ class Aggregator {
 		this.#top(topBucket, host, "ip", rec.ip);
 		if (rec.path) {
 			this.#top(topBucket, host, "path", rec.path);
+		}
+		if (this.statusCodes && rec.status) {
+			this.#top(topBucket, host, "status", String(rec.status));
 		}
 		if (rec.country) {
 			this.#top(topBucket, host, "country", rec.country);

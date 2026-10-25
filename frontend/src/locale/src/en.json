@@ -776,6 +776,12 @@
 	"settings.traffic-stats.retention": {
 		"defaultMessage": "Keep history for (days)"
 	},
+	"settings.traffic-stats.status-codes": {
+		"defaultMessage": "Record exact status codes"
+	},
+	"settings.traffic-stats.status-codes.hint": {
+		"defaultMessage": "Also counts each exact status code (200, 404, 502 and so on) per hour, for a per-code breakdown on the dashboard. Only applies to traffic read from now on, and is not kept when InfluxDB is used."
+	},
 	"settings.traffic-stats.using-influx": {
 		"defaultMessage": "Statistics will be written to InfluxDB."
 	},
@@ -823,6 +829,12 @@
 	},
 	"traffic.bandwidth": {
 		"defaultMessage": "Bandwidth"
+	},
+	"traffic.by-status": {
+		"defaultMessage": "By status code"
+	},
+	"traffic.by-status.hint": {
+		"defaultMessage": "The busiest exact status codes, at hourly resolution."
 	},
 	"traffic.class-over-time": {
 		"defaultMessage": "By class over time"

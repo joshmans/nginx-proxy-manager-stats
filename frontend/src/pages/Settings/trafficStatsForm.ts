@@ -8,6 +8,7 @@ const DEFAULT_RANGE_HOURS = 24;
 export interface TrafficStatsForm {
 	enabled: boolean;
 	geoip: boolean;
+	statusCodes: boolean;
 	retentionDays: number;
 	rangeHours: number;
 	influxUrl: string;
@@ -22,6 +23,7 @@ export const toFormValues = (data?: Setting): TrafficStatsForm => {
 	return {
 		enabled: data?.value === "enabled",
 		geoip: meta.geoip === true,
+		statusCodes: meta.statusCodes === true,
 		retentionDays: meta.retentionDays ?? DEFAULT_RETENTION_DAYS,
 		rangeHours: meta.rangeHours ?? DEFAULT_RANGE_HOURS,
 		influxUrl: influx.url || "",
@@ -36,6 +38,7 @@ export const toPayload = (values: TrafficStatsForm): Setting => ({
 	value: values.enabled ? "enabled" : "disabled",
 	meta: {
 		geoip: !!values.geoip,
+		statusCodes: !!values.statusCodes,
 		retentionDays: Number(values.retentionDays),
 		rangeHours: Number(values.rangeHours),
 		influx: {
