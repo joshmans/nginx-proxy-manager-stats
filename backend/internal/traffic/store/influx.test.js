@@ -59,13 +59,41 @@ test("writes per-code points as their own measurement, and never IPs or paths", 
 	assert.ok(!calls[0].body.includes("1.2.3.4"));
 });
 
-test("live points get distinct timestamps so they add up instead of overwriting", async () => {
+test("a batch written again replaces its first attempt, a later batch adds to it", async () => {
 	const calls = capture();
 	const store = influxStore(cfg);
-	await store.write(batch);
-	await store.write(batch);
-	const stamps = calls.flatMap((c) => c.body.split("\n").map((l) => l.split(" ").pop()));
-	assert.equal(new Set(stamps).size, stamps.length);
+	await store.write(batch, { key: 4096 });
+	await store.write(batch, { key: 4096 });
+	await store.write(batch, { key: 8192 });
+	const stamps = calls.map((c) => c.body.split("\n").map((l) => l.split(" ").pop()));
+	assert.deepEqual(stamps[0], stamps[1]);
+	assert.notDeepEqual(stamps[0], stamps[2]);
+	// and the offsets keep their exact nanoseconds
+	assert.equal(BigInt(stamps[0][0]) % 1000000000n, 4097n);
+	assert.equal(BigInt(stamps[2][0]) % 1000000000n, 8193n);
+});
+
+test("imported history is written at the start of its bucket, so importing it again overwrites it", async () => {
+	const calls = capture();
+	const store = influxStore(cfg);
+	await store.write(batch, { backfill: true });
+	await store.write(batch, { backfill: true });
+	assert.equal(calls[0].body, calls[1].body);
+	assert.ok(calls[0].body.split("\n").every((l) => BigInt(l.split(" ").pop()) % 1000000000n === 0n));
+});
+
+test("deletes a host's points before it is imported again", async () => {
+	const calls = capture();
+	const store = influxStore(cfg);
+	await store.clearHost("proxy", 3);
+	assert.equal(calls.length, 2);
+	assert.match(calls[0].url, /\/api\/v2\/delete\?org=homelab&bucket=npm$/);
+	const first = JSON.parse(calls[0].body);
+	assert.equal(first.predicate, '_measurement="npm_traffic" AND host_type="proxy" AND host_id="3"');
+	assert.equal(
+		JSON.parse(calls[1].body).predicate,
+		'_measurement="npm_traffic_status" AND host_type="proxy" AND host_id="3"',
+	);
 });
 
 test("reads per-code windows from the status measurement", async () => {
@@ -85,6 +113,7 @@ test("reads per-code windows from the status measurement", async () => {
 		from: 1792950000,
 		to: 1793000000,
 		step: 300,
+		statusStep: 3600,
 		hosts: [{ host_type: "proxy", host_id: 3 }],
 		statuses: true,
 	});
@@ -96,18 +125,9 @@ test("reads per-code windows from the status measurement", async () => {
 		],
 	);
 	const statusQuery = queries.find((q) => String(q).includes("npm_traffic_status"));
-	assert.match(statusQuery, /aggregateWindow\(every: 3600s/);
+	assert.match(statusQuery, /aggregateWindow\(every: 3600s, fn: sum, createEmpty: false, timeSrc: "_start"\)/);
+	assert.match(statusQuery, /range\(start: 1792947600, stop: 1793000000\)/);
 	assert.match(statusQuery, /r\.host_id == "3"/);
 	const off = await store.query({ from: 1792950000, to: 1793000000, step: 300, hosts: null });
 	assert.deepEqual(off.statuses, []);
-});
-
-test("timestamps keep their exact nanosecond offsets", async () => {
-	const calls = capture();
-	const store = influxStore(cfg);
-	await store.write({ buckets: batch.buckets, tops: [] });
-	await store.write({ buckets: batch.buckets, tops: [] });
-	const [first, second] = calls.map((c) => BigInt(c.body.split(" ").pop()));
-	assert.ok(first % 1000000000n !== 0n || second % 1000000000n !== 0n);
-	assert.equal(second - first, 1n);
 });

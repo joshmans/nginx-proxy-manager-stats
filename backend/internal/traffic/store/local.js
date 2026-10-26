@@ -1,15 +1,43 @@
 import db from "../../../db.js";
+import { LIMITED_KINDS, TOP_KEEP } from "../aggregator.js";
 
 const CHUNK = 200;
-const TOP_KEEP = 25;
 
 const num = (v) => Number(v) || 0;
+
+/**
+ * Applies a host filter to a query. `hosts` is null for everything, or a list of
+ * {host_type, host_id}; an entry without host_id means every host of that type.
+ */
+const scopeHosts = (builder, hosts) => {
+	if (!hosts) {
+		return;
+	}
+	builder.andWhere((w) => {
+		for (const type of [...new Set(hosts.map((h) => h.host_type))]) {
+			const ofType = hosts.filter((h) => h.host_type === type);
+			if (ofType.some((h) => h.host_id === undefined || h.host_id === null)) {
+				w.orWhere("host_type", type);
+			} else {
+				w.orWhere((t) =>
+					t.where("host_type", type).whereIn(
+						"host_id",
+						ofType.map((h) => h.host_id),
+					),
+				);
+			}
+		}
+	});
+};
 
 /**
  * Keeps the traffic counters in NPM's own database.
  */
 const localStore = {
 	type: "local",
+	// write() saves the log cursor in the same transaction as the counters, so a crash
+	// can never leave counted lines without a cursor (which would count them twice)
+	savesCursor: true,
 
 	async ping() {
 		await db()("traffic_stat").count("* as c").first();
@@ -17,9 +45,9 @@ const localStore = {
 
 	/**
 	 * @param {{buckets: Object[], tops: Object[]}} batch
-	 * @param {{backfill: Boolean}} _opts
+	 * @param {{backfill?: Boolean, cursor?: {file: String, inode: String, position: Number}}} opts
 	 */
-	async write(batch, _opts = {}) {
+	async write(batch, opts = {}) {
 		const knex = db();
 		await knex.transaction(async (trx) => {
 			for (let i = 0; i < batch.buckets.length; i += CHUNK) {
@@ -43,6 +71,13 @@ const localStore = {
 					.onConflict(["bucket", "host_type", "host_id", "kind", "item"])
 					.merge({ hits: trx.raw("?? + ?", ["traffic_stat_top.hits", row.hits]) });
 			}
+			if (opts.cursor) {
+				const { file, inode, position } = opts.cursor;
+				await trx("traffic_stat_cursor")
+					.insert({ file, inode: String(inode), position })
+					.onConflict("file")
+					.merge({ inode: String(inode), position });
+			}
 		});
 	},
 
@@ -53,8 +88,8 @@ const localStore = {
 	},
 
 	/**
-	 * Hours that are over only need their busiest items, so cut each older
-	 * hour/host/kind group down to TOP_KEEP rows.
+	 * Hours that are over only need the busiest client IPs and paths, so cut each older
+	 * hour/host/kind group down to TOP_KEEP rows. Countries and status codes are kept whole.
 	 */
 	async trimTops() {
 		const knex = db();
@@ -63,6 +98,7 @@ const localStore = {
 			.select("bucket", "host_type", "host_id", "kind")
 			.count("* as c")
 			.where("bucket", "<", before)
+			.whereIn("kind", LIMITED_KINDS)
 			.groupBy("bucket", "host_type", "host_id", "kind")
 			.having(knex.raw("count(*)"), ">", TOP_KEEP);
 		for (const g of groups) {
@@ -84,15 +120,23 @@ const localStore = {
 		}
 	},
 
+	/**
+	 * Forgets everything recorded for one host, before its log is imported again.
+	 */
+	async clearHost(host_type, host_id) {
+		await db()("traffic_stat").where({ host_type, host_id }).del();
+		await db()("traffic_stat_top").where({ host_type, host_id }).del();
+	},
+
 	async clear() {
 		await db()("traffic_stat").del();
 		await db()("traffic_stat_top").del();
 	},
 
 	/**
-	 * @param {{from: Number, to: Number, step: Number, hosts: Array|null}} q  hosts: allowed {host_type, host_id}, null for all
+	 * @param {{from: Number, to: Number, step: Number, statusStep: Number, hosts: Array|null, statuses: Boolean}} q
 	 */
-	async query({ from, to, step, hosts, statuses: wantStatuses = false }) {
+	async query({ from, to, step, statusStep, hosts, statuses: wantStatuses = false }) {
 		const knex = db();
 		if (hosts && hosts.length === 0) {
 			return { series: [], hosts: [], statuses: [], top: { ip: [], path: [], country: [] } };
@@ -100,18 +144,7 @@ const localStore = {
 
 		const scope = (builder) => {
 			builder.where("bucket", ">=", from).andWhere("bucket", "<", to);
-			if (hosts) {
-				builder.andWhere((w) => {
-					for (const type of [...new Set(hosts.map((h) => h.host_type))]) {
-						w.orWhere((t) =>
-							t.where("host_type", type).whereIn(
-								"host_id",
-								hosts.filter((h) => h.host_type === type).map((h) => h.host_id),
-							),
-						);
-					}
-				});
-			}
+			scopeHosts(builder, hosts);
 		};
 		const sums = [
 			knex.raw("SUM(requests) as requests"),
@@ -149,11 +182,13 @@ const localStore = {
 		// Exact status codes are only kept (hourly) when the extra is switched on
 		const statuses = [];
 		if (wantStatuses) {
+			const ss = Math.max(1, Math.floor(statusStep || step));
+			const statusTs = `bucket - (bucket % ${ss})`;
 			const rows = await knex("traffic_stat_top")
-				.select("item", knex.raw(`${tsExpr} as ts`), knex.raw("SUM(hits) as hits"))
+				.select("item", knex.raw(`${statusTs} as ts`), knex.raw("SUM(hits) as hits"))
 				.where("kind", "status")
 				.modify(scope)
-				.groupByRaw(`item, ${tsExpr}`)
+				.groupByRaw(`item, ${statusTs}`)
 				.orderBy("ts");
 			const byCode = new Map();
 			for (const r of rows) {

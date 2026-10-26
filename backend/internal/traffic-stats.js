@@ -23,6 +23,9 @@ const HOST_MODELS = {
 	stream: streamModel,
 };
 
+// The permission section that covers each kind of host
+const SECTIONS = { proxy: "proxy_hosts", redirection: "redirection_hosts", dead: "dead_hosts", stream: "streams" };
+
 export const DEFAULTS = {
 	retention_days: 30,
 	range_hours: 24,
@@ -92,6 +95,85 @@ const labelOf = (type, id) => {
 	return Array.isArray(row?.domain_names) && row.domain_names.length ? row.domain_names.join(", ") : "";
 };
 
+/**
+ * Works out which hosts the user may see statistics for, the same way the host lists do: a host type
+ * they have no access to is left out entirely, and with "own hosts only" visibility only their own
+ * hosts of a type count.
+ *
+ * @param   {Access} access
+ * @returns {Promise<Array|null>}  null for everything, otherwise {host_type, host_id?} entries
+ *                                 (without host_id: every host of that type)
+ */
+const visibleHosts = async (access) => {
+	const userId = access.token.getUserId(1);
+	const hosts = [];
+	let everything = true;
+	for (const [type, section] of Object.entries(SECTIONS)) {
+		let accessData;
+		try {
+			accessData = await access.can(`${section}:list`, 1);
+		} catch {
+			everything = false;
+			continue;
+		}
+		if (accessData.permission_visibility === "all") {
+			hosts.push({ host_type: type });
+			continue;
+		}
+		everything = false;
+		for (const [key, row] of labels) {
+			const [host_type, id] = key.split("|");
+			if (host_type === type && row.owner_user_id === userId) {
+				hosts.push({ host_type, host_id: Number(id) });
+			}
+		}
+	}
+	return everything ? null : hosts;
+};
+
+let applying = Promise.resolve();
+
+/**
+ * Where statistics are kept: "local", or the InfluxDB destination (a different URL, organization or
+ * bucket is a different place, with its own history to import).
+ */
+const storageKey = (meta) =>
+	influxConfigured(meta.influx) ? `influx|${meta.influx.url}|${meta.influx.org}|${meta.influx.bucket}` : "local";
+
+const applyNow = async (row, previousRow) => {
+	const setting = row || (await settingModel.query().where({ id: SETTING_ID }).first());
+	if (ingest) {
+		// wait for a pass in progress, so the old worker can't touch cursors or counters after this
+		await ingest.stop();
+		ingest = null;
+	}
+	geoip?.unload();
+	geoip = null;
+	if (setting?.value !== "enabled") {
+		return;
+	}
+
+	const meta = normalizeMeta(setting.meta);
+	await refreshLabels();
+	activeStore = influxConfigured(meta.influx) ? influxStore(meta.influx, labelOf) : localStore;
+
+	// A different storage destination has none of the history yet: forget where the logs were read
+	// up to, so they are imported into it
+	if (previousRow && storageKey(normalizeMeta(previousRow.meta)) !== storageKey(meta)) {
+		await db()("traffic_stat_cursor").del();
+	}
+
+	geoip = meta.geoip ? new GeoIp() : null;
+	ingest = new Ingest({
+		store: activeStore,
+		retentionDays: meta.retention_days,
+		geoip,
+		statusCodes: meta.status_codes,
+	});
+	logger.info(`Traffic stats enabled (storage: ${activeStore.type}, retention: ${meta.retention_days} days)`);
+	ingest.start();
+};
+
 const sumCounts = (rows) => {
 	const totals = { requests: 0, s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0, bytes: 0 };
 	for (const row of rows) {
@@ -106,6 +188,7 @@ const internalTrafficStats = {
 	SETTING_ID,
 	normalizeMeta,
 	maskMeta,
+	visibleHosts,
 
 	/**
 	 * Starts or stops the ingest worker to match the stored setting.
@@ -114,44 +197,13 @@ const internalTrafficStats = {
 	 * @param   {Object|null} previousRow   the setting row before an update
 	 * @returns {Promise}
 	 */
-	apply: async (row = null, previousRow = null) => {
-		const setting = row || (await settingModel.query().where({ id: SETTING_ID }).first());
-		if (ingest) {
-			ingest.stop();
-			ingest = null;
-		}
-		geoip?.unload();
-		geoip = null;
-		if (setting?.value !== "enabled") {
-			return;
-		}
-
-		const meta = normalizeMeta(setting.meta);
-		await refreshLabels();
-		const useInflux = influxConfigured(meta.influx);
-		activeStore = useInflux ? influxStore(meta.influx, labelOf) : localStore;
-
-		// A different storage backend starts empty: re-import the logs into it
-		const prevMeta = previousRow ? normalizeMeta(previousRow.meta) : null;
-		const prevInflux = prevMeta ? influxConfigured(prevMeta.influx) : useInflux;
-		const changed =
-			prevMeta && (prevInflux !== useInflux || (useInflux && prevMeta.influx.url !== meta.influx.url));
-		if (changed) {
-			await db()("traffic_stat_cursor").del();
-			if (!useInflux) {
-				await localStore.clear();
-			}
-		}
-
-		geoip = meta.geoip ? new GeoIp() : null;
-		ingest = new Ingest({
-			store: activeStore,
-			retentionDays: meta.retention_days,
-			geoip,
-			statusCodes: meta.status_codes,
-		});
-		logger.info(`Traffic stats enabled (storage: ${activeStore.type}, retention: ${meta.retention_days} days)`);
-		ingest.start();
+	apply: (row = null, previousRow = null) => {
+		// one change at a time: saving settings twice quickly must not start two workers
+		applying = applying.then(
+			() => applyNow(row, previousRow),
+			() => applyNow(row, previousRow),
+		);
+		return applying;
 	},
 
 	/**
@@ -165,7 +217,7 @@ const internalTrafficStats = {
 	 * @returns {Promise}
 	 */
 	getReport: async (access, data = {}) => {
-		const access_data = await access.can("reports:traffic", 1);
+		await access.can("reports:traffic", 1);
 		const setting = await settingModel.query().where({ id: SETTING_ID }).first();
 		if (setting?.value !== "enabled") {
 			return { enabled: false };
@@ -177,25 +229,19 @@ const internalTrafficStats = {
 		);
 
 		await refreshLabels();
-		let hosts = null;
-		if (access_data.permission_visibility !== "all") {
-			const userId = access.token.getUserId(1);
-			hosts = [];
-			for (const [key, row] of labels) {
-				if (row.owner_user_id === userId) {
-					const [host_type, id] = key.split("|");
-					hosts.push({ host_type, host_id: Number(id) });
-				}
-			}
-		}
+		let hosts = await visibleHosts(access);
 
 		if (data.host_type) {
 			const host = { host_type: String(data.host_type), host_id: Number.parseInt(data.host_id, 10) };
 			if (!(host.host_type in HOST_MODELS) || !Number.isFinite(host.host_id)) {
 				throw new errs.ValidationError("Invalid host");
 			}
-			// a user who can't see this host gets an empty report rather than another host's numbers
-			const allowed = !hosts || hosts.some((h) => h.host_type === host.host_type && h.host_id === host.host_id);
+			// a user who may not see this host gets an empty report rather than another host's numbers
+			const allowed =
+				!hosts ||
+				hosts.some(
+					(h) => h.host_type === host.host_type && (h.host_id === undefined || h.host_id === host.host_id),
+				);
 			hosts = allowed ? [host] : [];
 		}
 
@@ -203,9 +249,12 @@ const internalTrafficStats = {
 		const from = to - hours * 3600;
 		const step = Math.max(BUCKET_SECONDS, Math.ceil((to - from) / MAX_POINTS / BUCKET_SECONDS) * BUCKET_SECONDS);
 
+		// the per-code points are hourly, so their chart uses whole hours
+		const statusStep = Math.max(3600, Math.ceil(step / 3600) * 3600);
+
 		let result;
 		try {
-			result = await activeStore.query({ from, to, step, hosts, statuses: meta.status_codes });
+			result = await activeStore.query({ from, to, step, statusStep, hosts, statuses: meta.status_codes });
 		} catch (err) {
 			logger.error(`Traffic stats query failed: ${err.message}`);
 			throw new errs.ValidationError(`Could not read traffic stats: ${err.message}`);
@@ -252,6 +301,7 @@ const internalTrafficStats = {
 			geoip: !!geoip?.reader,
 			statusCodes: meta.status_codes,
 			range: { from, to, step, hours },
+			statusStep,
 			totals,
 			previous,
 			series: result.series,

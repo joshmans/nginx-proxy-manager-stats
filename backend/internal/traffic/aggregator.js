@@ -1,6 +1,9 @@
 export const BUCKET_SECONDS = 300;
 export const TOP_BUCKET_SECONDS = 3600;
-const TOP_KEEP = 25;
+// Only client IPs and paths are cut down to their busiest items. Countries and status codes are
+// complete breakdowns with a small natural limit, so every entry is kept.
+export const LIMITED_KINDS = ["ip", "path"];
+export const TOP_KEEP = 25;
 const ITEM_MAX = 255;
 
 /**
@@ -78,18 +81,14 @@ class Aggregator {
 		return this.buckets.size;
 	}
 
-	/**
-	 * Returns what has been accumulated and resets. "top" groups are cut down to
-	 * the busiest TOP_KEEP items so memory and storage stay bounded.
-	 *
-	 * @returns {{buckets: Object[], tops: Object[]}}
-	 */
-	drain() {
-		const buckets = [...this.buckets.values()];
+	#collect(buckets, groups) {
 		const tops = [];
-		for (const group of this.tops.values()) {
-			const sorted = [...group.items.entries()].sort((a, b) => b[1] - a[1]).slice(0, TOP_KEEP);
-			for (const [item, hits] of sorted) {
+		for (const group of groups) {
+			let entries = [...group.items.entries()].sort((a, b) => b[1] - a[1]);
+			if (LIMITED_KINDS.includes(group.kind)) {
+				entries = entries.slice(0, TOP_KEEP);
+			}
+			for (const [item, hits] of entries) {
 				tops.push({
 					bucket: group.bucket,
 					host_type: group.host_type,
@@ -100,8 +99,43 @@ class Aggregator {
 				});
 			}
 		}
-		this.reset();
 		return { buckets, tops };
+	}
+
+	/**
+	 * Returns what has been accumulated and resets.
+	 *
+	 * @returns {{buckets: Object[], tops: Object[]}}
+	 */
+	drain() {
+		const result = this.#collect([...this.buckets.values()], [...this.tops.values()]);
+		this.reset();
+		return result;
+	}
+
+	/**
+	 * Returns and removes only the buckets that end before `ts`, so a long import can be
+	 * written in bounded batches while the newer, still growing buckets stay in memory.
+	 *
+	 * @param   {Number} ts  unix seconds
+	 * @returns {{buckets: Object[], tops: Object[]}}
+	 */
+	drainBefore(ts) {
+		const buckets = [];
+		for (const [key, row] of this.buckets) {
+			if (row.bucket + BUCKET_SECONDS <= ts) {
+				buckets.push(row);
+				this.buckets.delete(key);
+			}
+		}
+		const groups = [];
+		for (const [key, group] of this.tops) {
+			if (group.bucket + TOP_BUCKET_SECONDS <= ts) {
+				groups.push(group);
+				this.tops.delete(key);
+			}
+		}
+		return this.#collect(buckets, groups);
 	}
 }
 
