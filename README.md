@@ -4,12 +4,6 @@
 	<img src="https://nginxproxymanager.com/github.png">
 	<br><br>
 	<img src="https://img.shields.io/badge/version-2.16.0-green.svg?style=for-the-badge">
-	<a href="https://hub.docker.com/repository/docker/jc21/nginx-proxy-manager">
-		<img src="https://img.shields.io/docker/stars/jc21/nginx-proxy-manager.svg?style=for-the-badge">
-	</a>
-	<a href="https://hub.docker.com/repository/docker/jc21/nginx-proxy-manager">
-		<img src="https://img.shields.io/docker/pulls/jc21/nginx-proxy-manager.svg?style=for-the-badge">
-	</a>
 </p>
 
 This project comes as a pre-built Docker image that enables you to easily forward to your websites
@@ -25,9 +19,6 @@ I created this project to fill a personal need to provide users with an easy way
 proxying hosts with SSL termination, and it had to be so easy that a monkey could do it. This goal hasn't changed.
 While there might be advanced options, they are optional, and the project should be as simple as possible
 so that the barrier to entry here is low.
-
-<a href="https://www.buymeacoffee.com/jc21" target="_blank"><img src="http://public.jc21.com/github/by-me-a-coffee.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
-
 
 ## Features
 
@@ -63,7 +54,7 @@ I won't go into too much detail here, but here are the basics for someone new to
 ```yml
 services:
   app:
-    image: 'docker.io/jc21/nginx-proxy-manager:latest'
+    image: 'ghcr.io/joshmans/nginx-proxy-manager-stats:latest'
     restart: unless-stopped
     ports:
       - '80:80'
