@@ -1,3 +1,5 @@
+> **Fork with Traffic Statistics.** This fork adds an optional traffic statistics dashboard. See [FORK.md](FORK.md) for how to install it (`ghcr.io/joshmans/nginx-proxy-manager-stats`).
+
 <p align="center">
 	<img src="https://nginxproxymanager.com/github.png">
 	<br><br>
