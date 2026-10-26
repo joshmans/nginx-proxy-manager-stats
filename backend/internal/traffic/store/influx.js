@@ -2,6 +2,8 @@ import { BUCKET_SECONDS } from "../aggregator.js";
 
 const FIELDS = ["requests", "s2xx", "s3xx", "s4xx", "s5xx", "bytes"];
 const MEASUREMENT = "npm_traffic";
+const STATUS_MEASUREMENT = "npm_traffic_status";
+const HOUR = 3600;
 const TIMEOUT_MS = 15000;
 
 // Live points get a unique, non-zero nanosecond offset inside their bucket so that
@@ -13,6 +15,8 @@ let seq = Number(process.hrtime.bigint() % 900000000n) + 1;
 const escapeTag = (v) => String(v).replace(/[,= ]/g, "\\$&");
 const escapeFlux = (v) => String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 const num = (v) => Number(v) || 0;
+// Nanosecond timestamps are far beyond what a JS number holds exactly, so build them as BigInts
+const stamp = (bucket, offset) => (BigInt(bucket) * 1000000000n + BigInt(offset)).toString();
 
 /**
  * Splits InfluxDB annotated CSV into row objects (one table per header block).
@@ -95,12 +99,21 @@ const influxStore = (cfg, labelOf = () => "") => {
 		},
 
 		async write(batch, opts = {}) {
+			const hostTags = (b) =>
+				`host_type=${escapeTag(b.host_type)},host_id=${b.host_id},host=${escapeTag(labelOf(b.host_type, b.host_id) || `host-${b.host_id}`)}`;
+			const nextOffset = () => (opts.backfill ? 0 : seq++ % 1000000000);
 			const lines = batch.buckets.map((b) => {
-				const offset = opts.backfill ? 0 : seq++ % 1000000000;
-				const tags = `host_type=${escapeTag(b.host_type)},host_id=${b.host_id},host=${escapeTag(labelOf(b.host_type, b.host_id) || `host-${b.host_id}`)}`;
 				const fields = FIELDS.map((f) => `${f}=${b[f]}i`).join(",");
-				return `${MEASUREMENT},${tags} ${fields} ${b.bucket * 1e9 + offset}`;
+				return `${MEASUREMENT},${hostTags(b)} ${fields} ${stamp(b.bucket, nextOffset())}`;
 			});
+			// Exact status codes (only present when that extra is on): one small series per host and code
+			for (const t of batch.tops) {
+				if (t.kind === "status") {
+					lines.push(
+						`${STATUS_MEASUREMENT},${hostTags(t)},code=${escapeTag(t.item)} hits=${t.hits}i ${stamp(t.bucket, nextOffset())}`,
+					);
+				}
+			}
 			for (let i = 0; i < lines.length; i += 5000) {
 				await call(
 					`/api/v2/write?org=${encodeURIComponent(cfg.org)}&bucket=${encodeURIComponent(cfg.bucket)}&precision=ns`,
@@ -117,7 +130,7 @@ const influxStore = (cfg, labelOf = () => "") => {
 		async prune() {},
 		async clear() {},
 
-		async query({ from, to, step, hosts }) {
+		async query({ from, to, step, hosts, statuses: wantStatuses = false }) {
 			if (hosts && hosts.length === 0) {
 				return { series: [], hosts: [], statuses: [], top: { ip: [], path: [], country: [] } };
 			}
@@ -163,11 +176,32 @@ const influxStore = (cfg, labelOf = () => "") => {
 				byHost.set(key, row);
 			}
 
+			const statuses = [];
+			if (wantStatuses) {
+				// the code points are hourly, so windows are never narrower than that
+				const statusWin = Math.max(HOUR, win);
+				const statusRows = await flux(`from(bucket: "${escapeFlux(cfg.bucket)}")
+					|> range(start: ${from}, stop: ${to})
+					|> filter(fn: (r) => r._measurement == "${STATUS_MEASUREMENT}" and r._field == "hits")
+					${scopeFilter(hosts)}
+					|> group(columns: ["code"])
+					|> aggregateWindow(every: ${statusWin}s, fn: sum, createEmpty: false)`);
+				const byCode = new Map();
+				for (const r of statusRows) {
+					const entry = byCode.get(r.code) || { code: Number(r.code), total: 0, series: [] };
+					const hits = num(r._value);
+					entry.total += hits;
+					entry.series.push({ ts: Math.floor(Date.parse(r._time) / 1000) - statusWin, requests: hits });
+					byCode.set(r.code, entry);
+				}
+				statuses.push(...[...byCode.values()].sort((a, b) => b.total - a.total));
+			}
+
 			return {
 				series: [...byTs.values()].sort((a, b) => a.ts - b.ts),
 				hosts: [...byHost.values()],
 				// Client IPs and paths are not exported: as InfluxDB tags they'd create unbounded series.
-				statuses: [],
+				statuses,
 				top: { ip: [], path: [], country: [] },
 			};
 		},

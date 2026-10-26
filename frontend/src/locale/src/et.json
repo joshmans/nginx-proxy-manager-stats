@@ -780,7 +780,7 @@
 		"defaultMessage": "Salvesta täpsed olekukoodid"
 	},
 	"settings.traffic-stats.status-codes.hint": {
-		"defaultMessage": "Loeb ka iga täpset olekukoodi (200, 404, 502 jne) tunnis, et näidata töölaual koodide kaupa jaotust. Kehtib ainult edaspidi loetud liikluse kohta ning InfluxDB kasutamisel seda ei säilitata."
+		"defaultMessage": "Loeb ka iga täpset olekukoodi (200, 404, 502 jne) tunnis, et näidata töölaual koodide kaupa jaotust. Kehtib ainult edaspidi loetud liikluse kohta."
 	},
 	"settings.traffic-stats.using-influx": {
 		"defaultMessage": "Statistika kirjutatakse InfluxDB-sse."

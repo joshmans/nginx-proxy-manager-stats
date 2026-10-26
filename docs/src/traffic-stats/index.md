@@ -50,7 +50,7 @@ dashboard gains a **By status code** section with a card for each of the busiest
 
 - The per-code trends have hourly resolution, unlike the 5 minute class charts.
 - Codes are only counted for log lines read after the setting is switched on.
-- They are not written to InfluxDB.
+- With InfluxDB storage they are written to their own measurement, see below.
 
 ## Client countries
 
@@ -72,6 +72,9 @@ can write to and read from the bucket) and save. The statistics are then written
 
 - Points are tagged with `host_type`, `host_id` and `host`, with the fields `requests`, `s2xx`, `s3xx`,
   `s4xx`, `s5xx` and `bytes`. Add up the fields over a time window to get totals.
+- With **Record exact status codes** on, per-code counts are written to the `npm_traffic_status` measurement
+  (tags `host_type`, `host_id`, `host` and `code`, field `hits`, one point per hour). The dashboard's
+  per-code cards are read back from it.
 - Retention is then controlled by the InfluxDB bucket, not by the setting above.
 - Client IPs, paths and countries are not written to InfluxDB. As tags they would create an unbounded
   number of series.

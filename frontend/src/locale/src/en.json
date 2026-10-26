@@ -780,7 +780,7 @@
 		"defaultMessage": "Record exact status codes"
 	},
 	"settings.traffic-stats.status-codes.hint": {
-		"defaultMessage": "Also counts each exact status code (200, 404, 502 and so on) per hour, for a per-code breakdown on the dashboard. Only applies to traffic read from now on, and is not kept when InfluxDB is used."
+		"defaultMessage": "Also counts each exact status code (200, 404, 502 and so on) per hour, for a per-code breakdown on the dashboard. Only applies to traffic read from now on."
 	},
 	"settings.traffic-stats.using-influx": {
 		"defaultMessage": "Statistics will be written to InfluxDB."
