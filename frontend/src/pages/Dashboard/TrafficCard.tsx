@@ -5,8 +5,21 @@ import { T } from "src/locale";
 
 const TrafficCard = () => {
 	const [hours, setHours] = useState<number | undefined>(undefined);
-	const { data } = useTrafficReport(hours);
+	const { data, error } = useTrafficReport(hours);
 
+	// A failing storage (bad InfluxDB token, server down, ...) is shown, not mistaken for "switched off"
+	if (error && !data) {
+		return (
+			<div className="col-12 mb-4">
+				<div className="w-100">
+					<h3 className="mb-2">
+						<T id="traffic.title" />
+					</h3>
+					<div className="alert alert-danger">{error.message}</div>
+				</div>
+			</div>
+		);
+	}
 	if (!data?.enabled || !data.range) {
 		return null;
 	}

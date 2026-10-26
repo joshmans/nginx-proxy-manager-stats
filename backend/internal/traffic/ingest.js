@@ -11,6 +11,12 @@ import { parseFileName, parseLine } from "./parser.js";
 const LOG_DIR = process.env.NPM_TRAFFIC_LOG_DIR || "/data/logs";
 const POLL_MS = 10 * 1000;
 const MAX_READ_PER_TICK = 16 * 1024 * 1024;
+// While importing history, buckets that are over are written out every this many lines, so memory
+// stays bounded no matter how big the logs are
+const BACKFILL_FLUSH_LINES = 100000;
+const BACKFILL_LAG_SECONDS = 2 * 3600;
+
+class Stopped extends Error {}
 
 /**
  * Tails the per-host nginx access logs and feeds the parsed lines to a store.
@@ -34,14 +40,15 @@ class Ingest {
 		this.geoip = geoip;
 		this.lastGeoip = 0;
 		this.timer = null;
-		this.busy = false;
+		this.running = null;
+		this.stopped = false;
 		this.lastPrune = 0;
 		this.lastError = null;
 		this.lastRun = null;
 	}
 
 	start() {
-		if (this.timer) {
+		if (this.timer || this.stopped) {
 			return;
 		}
 		this.timer = setInterval(() => this.tick(), POLL_MS);
@@ -49,22 +56,40 @@ class Ingest {
 		this.tick();
 	}
 
-	stop() {
+	/**
+	 * Stops the worker and waits for a pass that is already running to finish, so a replacement
+	 * worker never works on the same files and cursors at the same time.
+	 */
+	async stop() {
+		this.stopped = true;
 		if (this.timer) {
 			clearInterval(this.timer);
 			this.timer = null;
 		}
+		await this.running;
 	}
 
 	get #cutoff() {
 		return Math.floor(Date.now() / 1000) - this.retentionDays * 86400;
 	}
 
-	async tick() {
-		if (this.busy) {
-			return;
+	#checkStopped() {
+		if (this.stopped) {
+			throw new Stopped();
 		}
-		this.busy = true;
+	}
+
+	tick() {
+		if (this.running || this.stopped) {
+			return this.running;
+		}
+		this.running = this.#tick().finally(() => {
+			this.running = null;
+		});
+		return this.running;
+	}
+
+	async #tick() {
 		try {
 			if (this.geoip && Date.now() - this.lastGeoip > 3600 * 1000) {
 				this.lastGeoip = Date.now();
@@ -74,6 +99,7 @@ class Ingest {
 			const cursors = new Map((await db()("traffic_stat_cursor").select()).map((c) => [c.file, c]));
 
 			for (const file of files) {
+				this.#checkStopped();
 				await this.#processFile(file, cursors.get(file));
 			}
 
@@ -89,11 +115,12 @@ class Ingest {
 			}
 			this.lastError = null;
 		} catch (err) {
-			this.lastError = err.message;
-			logger.error(`Traffic stats ingest failed: ${err.message}`);
+			if (!(err instanceof Stopped)) {
+				this.lastError = err.message;
+				logger.error(`Traffic stats ingest failed: ${err.message}`);
+			}
 		} finally {
 			this.lastRun = Date.now();
-			this.busy = false;
 		}
 	}
 
@@ -105,11 +132,39 @@ class Ingest {
 		return rec;
 	}
 
+	#addLines(text, host, agg) {
+		const cutoff = this.#cutoff;
+		for (const line of text.split("\n")) {
+			const rec = this.#parse(line, host);
+			if (rec && rec.ts >= cutoff) {
+				agg.add(host, rec);
+			}
+		}
+	}
+
 	async #saveCursor(file, inode, position) {
 		await db()("traffic_stat_cursor")
 			.insert({ file, inode: String(inode), position })
 			.onConflict("file")
 			.merge({ inode: String(inode), position });
+	}
+
+	/**
+	 * Writes a batch and moves the cursor. The local store does both in one transaction. For a
+	 * remote store the write can't be atomic with the cursor, so it is made safe to repeat instead:
+	 * a batch that is written again after a failure replaces its first attempt (see the offset
+	 * scheme in the InfluxDB store).
+	 */
+	async #commit(batch, { file, inode, position, key, backfill = false }) {
+		const hasData = batch.buckets.length > 0 || batch.tops.length > 0;
+		if (this.store.savesCursor) {
+			await this.store.write(batch, { backfill, key, cursor: { file, inode, position } });
+			return;
+		}
+		if (hasData) {
+			await this.store.write(batch, { backfill, key });
+		}
+		await this.#saveCursor(file, inode, position);
 	}
 
 	async #processFile(file, cursor) {
@@ -128,31 +183,91 @@ class Ingest {
 		}
 
 		const agg = new Aggregator({ statusCodes: this.statusCodes });
-		let position = Number(cursor.position);
+		const savedPosition = Number(cursor.position);
+		let position = savedPosition;
 		const rotated = String(stat.ino) !== cursor.inode || stat.size < position;
 
 		if (rotated) {
-			// Whatever was written between our last read and the rotation is now in file.1
-			const previous = `${full}.1`;
-			try {
-				const prevStat = await fs.promises.stat(previous);
-				if (String(prevStat.ino) === cursor.inode && prevStat.size > position) {
-					await this.#readRange(previous, position, prevStat.size, host, agg);
-				}
-			} catch {
-				// not there, nothing to recover
-			}
+			await this.#recoverRotated(full, cursor, host, agg);
 			position = 0;
 		}
 
 		const end = Math.min(stat.size, position + MAX_READ_PER_TICK);
 		const consumed = end > position ? await this.#readRange(full, position, end, host, agg) : 0;
 
-		if (agg.size) {
-			await this.store.write(agg.drain());
+		if (rotated || consumed > 0 || agg.size > 0) {
+			this.#checkStopped();
+			await this.#commit(agg.drain(), {
+				file,
+				inode: stat.ino,
+				position: position + consumed,
+				// batches are keyed by where they started, which is what makes a repeat of one safe
+				key: rotated ? savedPosition : position,
+			});
 		}
-		if (rotated || consumed) {
-			await this.#saveCursor(file, stat.ino, position + consumed);
+	}
+
+	/**
+	 * After a rotation, picks up what was written to the old file between our last read and the rotation.
+	 * logrotate's `compress` (without `delaycompress`) turns the old file into .1.gz straight away,
+	 * otherwise it stays as .1 with the same inode.
+	 */
+	async #recoverRotated(full, cursor, host, agg) {
+		const position = Number(cursor.position);
+		try {
+			const plain = await fs.promises.stat(`${full}.1`);
+			if (String(plain.ino) === cursor.inode) {
+				if (plain.size > position) {
+					await this.#readRange(`${full}.1`, position, plain.size, host, agg);
+				}
+				return;
+			}
+		} catch {
+			// no uncompressed copy
+		}
+		try {
+			await fs.promises.stat(`${full}.1.gz`);
+		} catch {
+			return;
+		}
+		try {
+			await this.#readGzTail(`${full}.1.gz`, position, host, agg);
+		} catch (err) {
+			logger.warn(`Traffic stats: could not recover the end of ${path.basename(full)}.1.gz: ${err.message}`);
+		}
+	}
+
+	/**
+	 * Reads the lines of a compressed file that come after the first `skip` bytes. Nothing is
+	 * counted unless `skip` is on a line boundary, which guards against it being a different file.
+	 */
+	async #readGzTail(file, skip, host, agg) {
+		let seen = 0;
+		let lastSkipped = null;
+		let started = skip === 0;
+		let carry = "";
+		const input = fs.createReadStream(file).pipe(zlib.createGunzip());
+		for await (const chunk of input) {
+			let data = chunk;
+			if (!started) {
+				const need = skip - seen;
+				if (data.length < need) {
+					seen += data.length;
+					continue;
+				}
+				lastSkipped = data[need - 1];
+				if (lastSkipped !== 0x0a) {
+					return;
+				}
+				data = data.subarray(need);
+				started = true;
+			}
+			carry += data.toString("utf8");
+			const lastNewline = carry.lastIndexOf("\n");
+			if (lastNewline >= 0) {
+				this.#addLines(carry.slice(0, lastNewline), host, agg);
+				carry = carry.slice(lastNewline + 1);
+			}
 		}
 	}
 
@@ -170,13 +285,7 @@ class Ingest {
 			if (lastNewline < 0) {
 				return 0;
 			}
-			const cutoff = this.#cutoff;
-			for (const line of buf.toString("utf8", 0, lastNewline).split("\n")) {
-				const rec = this.#parse(line, host);
-				if (rec && rec.ts >= cutoff) {
-					agg.add(host, rec);
-				}
-			}
+			this.#addLines(buf.toString("utf8", 0, lastNewline), host, agg);
 			return lastNewline + 1;
 		} finally {
 			await handle.close();
@@ -190,7 +299,7 @@ class Ingest {
 		}
 		const rl = readline.createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
 		for await (const line of rl) {
-			onLine(line);
+			await onLine(line);
 		}
 	}
 
@@ -218,17 +327,39 @@ class Ingest {
 	}
 
 	/**
-	 * First sight of a host's log: import rotated files (oldest first), then the
-	 * live file up to its current size, and park the cursor there.
+	 * First sight of a host's log: import rotated files (oldest first), then the live file up to its
+	 * current size, and park the cursor there.
+	 *
+	 * Whatever was recorded for the host before is deleted first, so an import that was interrupted,
+	 * or a repeat after switching storage, can't count anything twice. The import is written in
+	 * bounded batches of buckets that are over, and the cursor only moves with the last one.
 	 */
 	async #backfill(file, host, stat) {
 		const full = path.join(LOG_DIR, file);
+		try {
+			await this.store.clearHost(host.host_type, host.host_id);
+		} catch (err) {
+			logger.warn(
+				`Traffic stats: could not clear old statistics of ${file}, they may be counted twice: ${err.message}`,
+			);
+		}
+
 		const agg = new Aggregator({ statusCodes: this.statusCodes });
 		const cutoff = this.#cutoff;
-		const onLine = (line) => {
+		let newest = 0;
+		let lines = 0;
+		const onLine = async (line) => {
 			const rec = this.#parse(line, host);
 			if (rec && rec.ts >= cutoff) {
 				agg.add(host, rec);
+				newest = Math.max(newest, rec.ts);
+			}
+			if (++lines % BACKFILL_FLUSH_LINES === 0) {
+				this.#checkStopped();
+				const batch = agg.drainBefore(newest - BACKFILL_LAG_SECONDS);
+				if (batch.buckets.length > 0 || batch.tops.length > 0) {
+					await this.store.write(batch, { backfill: true });
+				}
 			}
 		};
 
@@ -242,6 +373,9 @@ class Ingest {
 			try {
 				await this.#streamLines(path.join(LOG_DIR, r.name), {}, onLine);
 			} catch (err) {
+				if (err instanceof Stopped) {
+					throw err;
+				}
 				logger.warn(`Traffic stats: could not import ${r.name}: ${err.message}`);
 			}
 		}
@@ -252,10 +386,8 @@ class Ingest {
 			await this.#streamLines(full, { start: 0, end: consumed - 1 }, onLine);
 		}
 
-		if (agg.size) {
-			await this.store.write(agg.drain(), { backfill: true });
-		}
-		await this.#saveCursor(file, stat.ino, consumed);
+		this.#checkStopped();
+		await this.#commit(agg.drain(), { file, inode: stat.ino, position: consumed, backfill: true });
 		logger.info(`Traffic stats: imported existing log ${file}`);
 	}
 }

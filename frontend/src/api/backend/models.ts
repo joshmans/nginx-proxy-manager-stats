@@ -243,6 +243,7 @@ export interface TrafficReport {
 	storage?: "local" | "influxdb";
 	geoip?: boolean;
 	statusCodes?: boolean;
+	statusStep?: number;
 	statuses?: Array<{ code: number; total: number; series: Array<{ ts: number; requests: number }> }>;
 	error?: string | null;
 	range?: { from: number; to: number; step: number; hours: number };

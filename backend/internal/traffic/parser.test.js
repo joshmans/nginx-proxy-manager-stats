@@ -114,3 +114,41 @@ test("counts exact status codes only when asked to", () => {
 		["404", 2],
 	]);
 });
+
+test("drainBefore only hands out buckets that are over, and keeps the rest", () => {
+	const agg = new Aggregator({ statusCodes: true });
+	const host = { host_type: "proxy", host_id: 1 };
+	const base = 1792958400; // an hour boundary
+	agg.add(host, { ts: base + 10, status: 200, ip: "1.1.1.1", path: "/a", bytes: 1 });
+	agg.add(host, { ts: base + 7300, status: 404, ip: "2.2.2.2", path: "/b", bytes: 1 });
+	const early = agg.drainBefore(base + 3600);
+	assert.equal(early.buckets.length, 1);
+	assert.equal(early.buckets[0].bucket, base);
+	assert.ok(early.tops.some((t) => t.kind === "status" && t.item === "200"));
+	assert.ok(!early.tops.some((t) => t.item === "404"));
+	assert.equal(agg.size, 1);
+	const rest = agg.drain();
+	assert.equal(rest.buckets[0].bucket, base + 7200);
+	assert.ok(rest.tops.some((t) => t.kind === "status" && t.item === "404"));
+});
+
+test("only client IPs and paths are cut down; countries and status codes are kept whole", () => {
+	const agg = new Aggregator({ statusCodes: true });
+	const host = { host_type: "proxy", host_id: 1 };
+	for (let i = 0; i < 60; i++) {
+		agg.add(host, {
+			ts: 1792958400,
+			status: 200 + i,
+			ip: `10.0.0.${i}`,
+			path: `/p${i}`,
+			bytes: 1,
+			country: `C${i}`,
+		});
+	}
+	const { tops } = agg.drain();
+	const count = (kind) => tops.filter((t) => t.kind === kind).length;
+	assert.equal(count("ip"), 25);
+	assert.equal(count("path"), 25);
+	assert.equal(count("status"), 60);
+	assert.equal(count("country"), 60);
+});

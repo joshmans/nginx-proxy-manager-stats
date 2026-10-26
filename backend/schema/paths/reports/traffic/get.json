@@ -398,6 +398,10 @@
 										}
 									}
 								}
+							},
+							"statusStep": {
+								"type": "integer",
+								"description": "Seconds per point of the per-status-code series (whole hours)"
 							}
 						}
 					}

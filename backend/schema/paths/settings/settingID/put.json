@@ -1,14 +1,10 @@
 {
 	"operationId": "updateSetting",
 	"summary": "Update a setting",
-	"tags": [
-		"settings"
-	],
+	"tags": ["settings"],
 	"security": [
 		{
-			"bearerAuth": [
-				"admin"
-			]
+			"bearerAuth": ["admin"]
 		}
 	],
 	"parameters": [
@@ -18,10 +14,7 @@
 			"schema": {
 				"type": "string",
 				"minLength": 1,
-				"enum": [
-					"default-site",
-					"traffic-stats"
-				]
+				"enum": ["default-site", "traffic-stats"]
 			},
 			"required": true,
 			"description": "Setting ID",
@@ -41,15 +34,7 @@
 						"value": {
 							"type": "string",
 							"minLength": 1,
-							"enum": [
-								"congratulations",
-								"404",
-								"444",
-								"redirect",
-								"html",
-								"enabled",
-								"disabled"
-							],
+							"enum": ["congratulations", "404", "444", "redirect", "html", "enabled", "disabled"],
 							"example": "html"
 						},
 						"meta": {

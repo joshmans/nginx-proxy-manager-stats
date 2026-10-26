@@ -304,6 +304,11 @@ const TrafficPanel = ({ data, single }: PanelProps) => {
 	const slots = Math.max(1, Math.ceil((range.to - first) / range.step));
 	const points = Array.from({ length: slots + 1 }, (_, i) => first + i * range.step);
 	const byTs = new Map((data.series ?? []).map((p) => [p.ts, p]));
+	// The per-code points are hourly, so their charts use their own time slots
+	const statusStep = data.statusStep ?? range.step;
+	const statusFirst = range.from - (range.from % statusStep);
+	const statusSlots = Math.max(1, Math.ceil((range.to - statusFirst) / statusStep));
+	const statusPoints = Array.from({ length: statusSlots + 1 }, (_, i) => statusFirst + i * statusStep);
 	const label = (ts: number) => formatTime(ts, range.hours);
 	// Shares are of the counted codes, since codes are only counted from when the setting was switched on
 	const statusTotal = (data.statuses ?? []).reduce((sum, st) => sum + st.total, 0);
@@ -464,7 +469,7 @@ const TrafficPanel = ({ data, single }: PanelProps) => {
 												{REASONS[st.code] ?? ""} · {st.total.toLocaleString()}
 											</div>
 											<Bars
-												points={points}
+												points={statusPoints}
 												byTs={slots}
 												value={(p) => p.requests}
 												color={color}
