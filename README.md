@@ -3,7 +3,7 @@
 <p align="center">
 	<img src="https://nginxproxymanager.com/github.png">
 	<br><br>
-	<img src="https://img.shields.io/badge/version-2.16.0-green.svg?style=for-the-badge">
+	<img src="https://img.shields.io/badge/version-2.17.0-green.svg?style=for-the-badge">
 </p>
 
 This project comes as a pre-built Docker image that enables you to easily forward to your websites
